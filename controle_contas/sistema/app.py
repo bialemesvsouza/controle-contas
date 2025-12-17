@@ -147,6 +147,16 @@ def criar_tipo():
     
     if not nome or not categoria:
         return jsonify({"erro": "Nome e Categoria são obrigatórios"}), 400
+    
+    # Verifica se já existe uma categoria com este nome e tipo para o usuário atual
+    tipo_existente = Tipo.query.filter_by(
+        nome=nome, 
+        categoria=categoria, 
+        id_usuario=current_user.id
+    ).first()
+
+    if tipo_existente:
+        return jsonify({"erro": f"A categoria '{nome}' já existe em {categoria}."}), 400
         
     novo_tipo = Tipo(nome=nome, categoria=categoria, id_usuario=current_user.id)
     db.session.add(novo_tipo)
@@ -260,7 +270,7 @@ def listar_parcelas():
     query = Parcela.query.filter_by(id_usuario=current_user.id)
     
     if mes_filtro:
-        inicio = datetime.strptime(mes_filtro, '%Y-%m')
+        inicio = datetime.strptime(mes_filtro, '%Y-%m').date()
         fim = inicio + relativedelta(months=+1)
         query = query.filter(Parcela.vencimento >= inicio, Parcela.vencimento < fim)
         
@@ -276,7 +286,8 @@ def listar_parcelas():
             "vencimento": str(p.vencimento),
             "status": p.status,
             "tipo": p.transacao.tipo_transacao,
-            "categoria": p.transacao.tipo.nome if p.transacao.tipo else 'Geral'
+            "categoria": p.transacao.tipo.nome if p.transacao.tipo else 'Geral',
+            "id_categoria": p.transacao.id_tipo
         })
     return jsonify(lista)
 
@@ -310,6 +321,9 @@ def editar_parcela(id_parcela):
     parcela.status = dados['status']
     parcela.transacao.descricao = dados['descricao']
     
+    if 'id_categoria' in dados and dados['id_categoria']:
+        parcela.transacao.id_tipo = int(dados['id_categoria'])
+
     if parcela.status == 'pago' and not parcela.data_pagamento:
         parcela.data_pagamento = datetime.now().date()
     elif parcela.status != 'pago':

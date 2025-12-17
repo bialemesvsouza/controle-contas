@@ -41,6 +41,23 @@ function setupEventListeners() {
     document.getElementById('nova-transacao-form').addEventListener('submit', handleNovaTransacao);
     document.getElementById('nova-categoria-form').addEventListener('submit', handleNovaCategoria);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    
+
+    const formNovaTransacao = document.getElementById('nova-transacao-form');
+    const campos = formNovaTransacao.querySelectorAll('input, select');
+
+    campos.forEach((campo, index) => {
+        campo.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                
+                const proximoCampo = campos[index + 1];
+                if (proximoCampo) {
+                    proximoCampo.focus();
+                }
+            }
+        });
+    });
 }
 
 // --- NAVEGAÇÃO ---
@@ -504,27 +521,49 @@ function baixarSelecionados() {
 // --- MODAL EDIÇÃO ---
 function abrirModal(index) {
     const p = parcelasAtuais[index];
+    
     document.getElementById('edit-id').value = p.id;
     document.getElementById('edit-descricao').value = p.descricao;
     document.getElementById('edit-valor').value = p.valor;
     document.getElementById('edit-vencimento').value = p.vencimento;
-    
-    // --- LÓGICA DE VISUALIZAÇÃO (STATUS E LABEL) ---
+
     const selectStatus = document.getElementById('edit-status');
     const divStatus = selectStatus.closest('.form-group');
     const labelVencimento = document.getElementById('edit-vencimento').closest('.form-group').querySelector('label');
 
     if (p.tipo === 'receita') {
-        // Configuração para RECEITA
         divStatus.classList.add('hidden');           
         labelVencimento.textContent = 'Data de Recebimento'; 
     } else {
-        // Configuração para DESPESA
         divStatus.classList.remove('hidden');        
         selectStatus.value = p.status;               
         labelVencimento.textContent = 'Vencimento';  
     }
-    // -----------------------------------------------
+
+    const selectCategoria = document.getElementById('edit-categoria');
+    selectCategoria.innerHTML = ''; // Limpa opções anteriores
+
+    // Filtra as categorias globais para mostrar apenas as do tipo correto (receita ou despesa)
+    const categoriasCompativeis = todasCategorias.filter(c => c.categoria === p.tipo);
+
+    if (categoriasCompativeis.length === 0) {
+        const option = document.createElement('option');
+        option.text = "Nenhuma categoria disponível";
+        selectCategoria.appendChild(option);
+    } else {
+        categoriasCompativeis.forEach(cat => {
+            const option = document.createElement('option');
+            option.value = cat.id;
+            option.textContent = cat.nome;
+            
+            // Verifica se é a categoria atual da parcela para deixar selecionado
+            if (cat.id === p.id_categoria) {
+                option.selected = true;
+            }
+            selectCategoria.appendChild(option);
+        });
+    }
+    // -----------------------------------------------------
 
     document.getElementById('modal-edicao').classList.remove('hidden');
 }
@@ -548,7 +587,8 @@ async function salvarEdicao(e) {
         descricao: document.getElementById('edit-descricao').value,
         valor: document.getElementById('edit-valor').value,
         vencimento: document.getElementById('edit-vencimento').value,
-        status: statusParaEnviar 
+        status: statusParaEnviar,
+        id_categoria: document.getElementById('edit-categoria').value 
     };
 
     doPost(`/editar_parcela/${id}`, body, (data) => {
@@ -581,7 +621,7 @@ function gerarCamposData() {
     container.innerHTML = ''; 
     const hoje = new Date();
     for (let i = 0; i < qtd; i++) {
-        const dataSugerida = new Date(hoje.getFullYear(), hoje.getMonth() + i + 1, hoje.getDate());
+        const dataSugerida = new Date(hoje.getFullYear(), hoje.getMonth() + i, hoje.getDate());
         const dataStr = dataSugerida.toISOString().split('T')[0];
         const div = document.createElement('div');
         div.innerHTML = `<label style="font-size:0.75rem; color:#666">Parcela ${i + 1}</label><input type="date" class="input-data-parcela" value="${dataStr}" required>`;
