@@ -685,3 +685,49 @@ document.getElementById('transacao-tipo').addEventListener('change', function() 
     }
     atualizarSelectCategorias(this.value);
 });
+
+function aplicarRecorrencia(tipo) {
+    const inputs = document.querySelectorAll('.input-data-parcela');
+    if (inputs.length === 0) return;
+
+    // Pega a data da primeira parcela como base
+    const primeiraDataVal = inputs[0].value;
+    if (!primeiraDataVal) {
+        showNotification('Preencha a data da primeira parcela antes de usar os atalhos.', 'error');
+        inputs[0].focus();
+        return;
+    }
+
+    // Separa ano, mês e dia para criar a data sem problemas de fuso horário
+    const [anoBase, mesBase, diaBase] = primeiraDataVal.split('-').map(Number);
+
+    inputs.forEach((input, index) => {
+        if (index === 0) return; // Pula a primeira parcela (que é a referência)
+
+        if (tipo === '=') {
+            // Igualar: Copia exatamente a mesma string
+            input.value = primeiraDataVal;
+        } else {
+            // Cria um objeto Date base para calcular
+            let novaData = new Date(anoBase, mesBase - 1, diaBase);
+            let mesesParaAdicionar = 0;
+
+            if (tipo === 'M') mesesParaAdicionar = index;      
+            if (tipo === 'T') mesesParaAdicionar = index * 3;  
+            if (tipo === 'S') mesesParaAdicionar = index * 6;  
+            if (tipo === 'A') mesesParaAdicionar = index * 12; 
+
+            // Adiciona os meses
+            novaData.setMonth(novaData.getMonth() + mesesParaAdicionar);
+
+            if (novaData.getDate() !== diaBase) {
+                novaData.setDate(0); 
+            }
+            const anoIso = novaData.getFullYear();
+            const mesIso = String(novaData.getMonth() + 1).padStart(2, '0');
+            const diaIso = String(novaData.getDate()).padStart(2, '0');
+            
+            input.value = `${anoIso}-${mesIso}-${diaIso}`;
+        }
+    });
+}

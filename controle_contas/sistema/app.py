@@ -266,6 +266,7 @@ def dashboard():
 @app.route('/parcelas', methods=['GET'])
 @login_required
 def listar_parcelas():
+    atualizar_atrasos(current_user.id)
     mes_filtro = request.args.get('mes')
     query = Parcela.query.filter_by(id_usuario=current_user.id)
     
@@ -342,6 +343,17 @@ def excluir_parcela(id_parcela):
     db.session.delete(parcela)
     db.session.commit()
     return jsonify({"mensagem": "Parcela excluída com sucesso!"})
+
+def atualizar_atrasos(user_id):
+    hoje = datetime.now().date()
+    # Atualiza parcelas vencidas que ainda estão como 'a_pagar'
+    Parcela.query.filter(
+        Parcela.id_usuario == user_id,
+        Parcela.status == 'a_pagar',
+        Parcela.vencimento < hoje
+    ).update({Parcela.status: 'atrasado'}, synchronize_session=False)
+    
+    db.session.commit()
 
 if __name__ == '__main__':
     with app.app_context():

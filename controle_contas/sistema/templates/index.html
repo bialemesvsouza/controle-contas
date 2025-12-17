@@ -185,8 +185,17 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label>Datas de Vencimento:</label>
+                   <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 5px;">
+                            <label style="margin-bottom: 0;">Datas de Vencimento:</label>
+                            <div class="btn-group-datas" style="display: flex; gap: 5px;">
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="aplicarRecorrencia('=')" title="Repetir data igual para todas">=</button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="aplicarRecorrencia('M')" title="Mensal (mesmo dia)">M</button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="aplicarRecorrencia('T')" title="Trimestral">T</button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="aplicarRecorrencia('S')" title="Semestral">S</button>
+                                <button type="button" class="btn btn-sm btn-secondary" onclick="aplicarRecorrencia('A')" title="Anual">A</button>
+                            </div>
+                        </div>
                         <div id="container-datas"></div>
                     </div>
                     <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Salvar Transação</button>
