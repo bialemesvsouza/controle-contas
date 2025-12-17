@@ -196,8 +196,22 @@ function renderizarGrafico(canvasId, tipo, dados) {
     
     // Paleta de cores
     const coresBase = [
+        // Clássicas 
         '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
-        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c0392b'
+        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c0392b',
+        
+        // Tons Vivos & Pasteis
+        '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e',
+        '#f1c40f', '#e67e22', '#e74c3c', '#ecf0f1', '#95a5a6',
+        '#f39c12', '#d35400', '#c0392b', '#bdc3c7', '#7f8c8d',
+        '#55efc4', '#81ecec', '#74b9ff', '#a29bfe', '#dfe6e9',
+        '#00b894', '#00cec9', '#0984e3', '#6c5ce7', '#b2bec3',
+        '#ffeaa7', '#fab1a0', '#ff7675', '#fd79a8', '#636e72',
+        '#fdcb6e', '#e17055', '#d63031', '#e84393', '#2d3436',
+        
+        // Tons Escuros & Terrosos
+        '#6D214F', '#182C61', '#FC427B', '#BDC581', '#82589F',
+        '#58B19F', '#2C3A47', '#B33771', '#3B3B98', '#FD7272'
     ];
     
     if (tipo === 'despesa') {
@@ -675,14 +689,17 @@ function fecharModalConfirmacao() {
     document.getElementById('modal-confirmacao').classList.add('hidden');
 }
 
-// Adicionar no script.js
+
 document.getElementById('transacao-tipo').addEventListener('change', function() {
-    const labelDatas = document.querySelector('#container-datas').previousElementSibling;
+    const containerHeader = document.querySelector('#container-datas').previousElementSibling;
+    const label = containerHeader.querySelector('label');
+    
     if(this.value === 'receita') {
-        labelDatas.textContent = 'Datas de Recebimento:';
+        if(label) label.textContent = 'Datas de Recebimento:';
     } else {
-        labelDatas.textContent = 'Datas de Vencimento:';
+        if(label) label.textContent = 'Datas de Vencimento:';
     }
+    
     atualizarSelectCategorias(this.value);
 });
 
@@ -705,7 +722,6 @@ function aplicarRecorrencia(tipo) {
         if (index === 0) return; // Pula a primeira parcela (que é a referência)
 
         if (tipo === '=') {
-            // Igualar: Copia exatamente a mesma string
             input.value = primeiraDataVal;
         } else {
             // Cria um objeto Date base para calcular
