@@ -1,0 +1,167 @@
+Processo de produção:
+
+| Etapa | Nome                  | O que faz                                      |
+| ----- | --------------------- | ---------------------------------------------- |
+| 1     | Análise de Requisitos | Refinar regras, validar, remover ambiguidades  |
+| 2     | Modelagem             | Diagramas de casos de uso, ER, classes         |
+| 3     | Arquitetura           | Definir frameworks, camadas, padrões           |
+| 4     | Design Detalhado      | Estruturar endpoints, classes, tabelas, lógica |
+| 5     | Implementação         | Codificar                                      |
+| 6     | Testes                | Verificar qualidade                            |
+| 7     | Deploy                | Subir para produção                            |
+| 8     | Manutenção            | Evolução e correção                            |
+
+
+
+
+
+
+Requisitos do sistema:
+- Deve ser possivel realizar login
+- Cada usuário pode cadastrar despesas e receitas
+- é possivel parcelar despesas e receitas
+- cada receita e despesa está dentro de um Tipo (alimentação, transporte etc)
+- o usuário pode cadastrar os próprios tipos
+- cada receita e despesa precisa de um status (a pagar/receber, pago, atrasado)
+- é possivel cadastrar seu salário e manter como base para analises
+- é possivel editar e excluir as receitas e despesas cadastradas 
+- a tela será dividida por meses e é possivel ver o valor da parcela de cada mês 
+- é possivel selecionar checkbox de cada parcela e baixar elas juntas de uma vez
+- ser possivel reparcelar 
+- ser possivel adicionar uma justificativa na baixa 
+- as despesas e receitas devem ser apresentadas em tabelas 
+- a tela inicial será um dashboard onde irá apresentar gráficos
+    - receitas de despesas
+    - despesas e receitas por tipos
+
+Relacionamentos:
+
+Usuário 1:N Transação
+Usuário 1:N Tipo
+Usuário 1:N Parcela
+Transação 1:N Parcela
+Tipo 1:N Transação
+Parcela N:1 Reparcelamento (quando aplicável)
+
+
+Dados necessário:
+
+ DESPESAS
+| - Valor total
+| - Número de Parcelas
+| - Tipo
+| - Forma de pagamento
+| - Banco do pagamento
+| - Descrição
+| - Detalhes
+
+
+ RECEITAS
+| - Valor total
+| - Número de Parcelas
+| - Tipo
+| - Forma de pagamento
+| - Banco do pagamento
+| - Descrição
+| - Detalhes
+
+ PARCELA
+| - Valor total da parcela
+| - Número da Parcela
+| - Tipo
+| - Forma de pagamento
+| - Banco do pagamento
+| - Descrição
+| - Detalhes
+| - Data de vencimento
+| - Status
+
+iddes idpar idtipo idformpag idbanco descricao valorpar data_venc data_pag data_ins valor_tot detalhes id_usu 
+
+
+
+
+
+Analisando seus dados, vejo que a estrutura precisa de alguns ajustes. Aqui está uma proposta melhorada:
+
+## TABELA DESPESAS (Transação)
+```sql
+CREATE TABLE transacao (
+    id_transacao INT PRIMARY KEY AUTO_INCREMENT,
+    id_usuario INT,
+    id_tipo INT,
+    id_forma_pagamento INT,
+    id_banco INT,
+    descricao VARCHAR(255),
+    valor_total DECIMAL(10,2),
+    numero_parcelas INT,
+    data_insercao DATETIME DEFAULT CURRENT_TIMESTAMP,
+    tipo_transacao ENUM('despesa', 'receita'),
+    detalhes TEXT,
+    FOREIGN KEY (id_usuario) REFERENCES usuario(id),
+    FOREIGN KEY (id_tipo) REFERENCES tipo(id),
+    FOREIGN KEY (id_forma_pagamento) REFERENCES forma_pagamento(id),
+    FOREIGN KEY (id_banco) REFERENCES banco(id)
+);
+```
+
+## TABELA PARCELAS
+```sql
+CREATE TABLE parcela (
+    id_parcela INT PRIMARY KEY AUTO_INCREMENT,
+    id_transacao INT,
+    id_usuario INT,
+    numero_parcela INT,
+    valor_parcela DECIMAL(10,2),
+    data_vencimento DATE,
+    data_pagamento DATE NULL,
+    status ENUM('a_pagar', 'pago', 'atrasado'),
+    forma_pagamento VARCHAR(100),
+    banco_pagamento VARCHAR(100),
+    baixado BOOLEAN DEFAULT FALSE,
+    justificativa_baixa TEXT,
+    FOREIGN KEY (id_transacao) REFERENCES transacao(id_transacao),
+    FOREIGN KEY (id_usuario) REFERENCES usuario(id)
+);
+```
+
+## TABELAS AUXILIARES
+```sql
+CREATE TABLE tipo (
+    id_tipo INT PRIMARY KEY AUTO_INCREMENT,
+    id_usuario INT,
+    nome VARCHAR(100),
+    categoria ENUM('despesa', 'receita'),
+    cor VARCHAR(7),
+    FOREIGN KEY (id_usuario) REFERENCES usuario(id)
+);
+
+CREATE TABLE forma_pagamento (
+    id_forma_pagamento INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(100) -- (Cartão, Dinheiro, PIX, etc.)
+);
+
+CREATE TABLE banco (
+    id_banco INT PRIMARY KEY AUTO_INCREMENT,
+    nome VARCHAR(100),
+    id_usuario INT,
+    FOREIGN KEY (id_usuario) REFERENCES usuario(id)
+);
+```
+
+## CORREÇÕES IMPORTANTES:
+
+1. **Separação correta**: A tabela principal é `transacao` (com tipo 'despesa' ou 'receita') e as parcelas ficam na tabela `parcela`
+
+2. **Evitar redundância**: Não repetir `forma_pagamento` e `banco` em ambas tabelas
+
+3. **Chaves estrangeiras**: Manter consistência nos nomes (ex: `id_transacao` em vez de `iddes`)
+
+4. **Estrutura normalizada**: Informações de pagamento podem ficar na parcela se forem específicas por parcela
+
+## FLUXO RECOMENDADO:
+1. Cadastra transação na `transacao` com valor total e parcelas
+2. Sistema cria automaticamente N registros na `parcela`
+3. Baixa individual ou em lote atualiza `parcela`
+
+Quer que eu detalhe mais alguma parte específica?

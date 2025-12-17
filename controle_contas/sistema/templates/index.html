@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Financeiro</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .categoria-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .categoria-box { background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #eee; }
+        .categoria-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: white; padding: 8px 12px; margin-bottom: 8px; 
+            border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
+        }
+        .btn-icon-del { background: none; border: none; color: #e74c3c; font-weight: bold; cursor: pointer; font-size: 1.2rem;}
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container header-content">
+            <div class="logo">Minhas Finanças</div>
+            <div class="user-info">
+                <span id="username-display">Visitante</span>
+                <button id="logout-btn" class="btn btn-danger btn-sm hidden">Sair</button>
+            </div>
+        </div>
+    </header>
+
+    <nav class="main-nav hidden" id="app-nav">
+        <div class="nav-container">
+            <div class="nav-item active" onclick="navegarPara('dashboard')">Dashboard</div>
+            <div class="nav-item" onclick="navegarPara('extrato')">Extrato</div>
+            <div class="nav-item" onclick="navegarPara('novo')">Nova Transação</div>
+            <div class="nav-item" onclick="navegarPara('categorias')">Categorias</div>
+        </div>
+    </nav>
+
+    <div class="container" style="margin-top: 20px;">
+        <div id="notification-area"></div>
+
+        <div id="auth-section" class="card">
+            <h2 style="margin-bottom: 20px;">Acesso</h2>
+            <div style="display:flex; margin-bottom:20px; border-bottom:1px solid #ddd;">
+                <div style="padding:10px 20px; cursor:pointer; font-weight:bold; border-bottom:3px solid var(--primary); color:var(--primary);" id="tab-login-btn" onclick="toggleAuth('login')">Login</div>
+                <div style="padding:10px 20px; cursor:pointer; color:#666;" id="tab-register-btn" onclick="toggleAuth('register')">Registrar</div>
+            </div>
+            
+            <div id="login-tab">
+                <form id="login-form">
+                    <div class="form-group"><label>Usuário</label><input type="text" id="login-username" required></div>
+                    <div class="form-group"><label>Senha</label><input type="password" id="login-password" required></div>
+                    <button type="submit" class="btn btn-primary" style="width:100%">Entrar</button>
+                </form>
+            </div>
+            
+            <div id="register-tab" class="hidden">
+                <form id="register-form">
+                    <div class="form-group"><label>Usuário</label><input type="text" id="register-username" required></div>
+                    <div class="form-group"><label>Senha</label><input type="password" id="register-password" required></div>
+                    <button type="submit" class="btn btn-secondary" style="width:100%">Criar Conta</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="view-dashboard" class="view-section">
+            <h2>Visão Geral</h2>
+            <div class="date-filter-container">
+                <div style="flex:1; min-width: 150px;">
+                    <label>Data Início</label>
+                    <input type="date" id="dash-inicio">
+                </div>
+                <div style="flex:1; min-width: 150px;">
+                    <label>Data Fim</label>
+                    <input type="date" id="dash-fim">
+                </div>
+                <div>
+                    <button class="btn btn-primary" onclick="loadDashboard()">Filtrar</button>
+                </div>
+            </div>
+            <div class="dashboard-stats">
+                <div class="stat-card primary">
+                    <div class="stat-label">Total Despesas</div>
+                    <div class="stat-value" id="dash-total-despesas">R$ 0,00</div>
+                </div>
+                <div class="stat-card secondary">
+                    <div class="stat-label">Total Receitas</div>
+                    <div class="stat-value" id="dash-total-receitas">R$ 0,00</div>
+                </div>
+            </div>
+
+            <div class="charts-container">
+                <div class="chart-card">
+                    <h3>Despesas por Categoria</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="chart-despesas"></canvas>
+                    </div>
+                </div>
+                <div class="chart-card">
+                    <h3>Receitas por Categoria</h3>
+                    <div class="chart-wrapper">
+                        <canvas id="chart-receitas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card balance-card">
+                <h3>Balanço Geral</h3>
+                <div id="dash-balanco" class="balance-value">R$ 0,00</div>
+            </div>
+        </div>
+
+        <div id="view-extrato" class="view-section">
+            <h2 style="margin-bottom: 15px;">Extrato Mensal</h2>
+            <div class="rover-container">
+                <button class="rover-arrow" onclick="mudarMesRover(-1)">&#10094;</button>
+                <div class="rover-months-list" id="rover-lista"></div>
+                <button class="rover-arrow" onclick="mudarMesRover(1)">&#10095;</button>
+            </div>
+            <div class="extrato-filter" style="display: flex; justify-content: center; margin-bottom: 20px; gap: 10px;">
+                <button id="btn-tab-despesa" class="btn-tab active" onclick="mudarTipoExtrato('despesa')">Despesas</button>
+                <button id="btn-tab-receita" class="btn-tab" onclick="mudarTipoExtrato('receita')">Receitas</button>
+            </div>
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; flex-wrap: wrap; gap:10px;">
+                    <h3 id="titulo-lista-mes">Despesas do Mês</h3>
+                    <button id="btn-baixar-lote" class="btn btn-secondary hidden" onclick="baixarSelecionados()">
+                        &#10003; Confirmar Baixa
+                    </button>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;">
+                                    <input type="checkbox" id="check-all" onclick="toggleTodos(this)">
+                                </th>
+                                <th>Descrição</th>
+                                <th>Parc.</th>
+                                <th>Categoria</th>
+                                <th>Valor</th>
+                                <th>Vencimento</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="parcelas-table-body"></tbody>
+                        <tfoot id="parcelas-footer"></tfoot>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-novo" class="view-section">
+            <h2>Cadastrar Transação</h2>
+            <div class="card" style="margin-top: 15px;">
+                <form id="nova-transacao-form">
+                    <div class="form-group">
+                        <label>Descrição</label>
+                        <input type="text" id="transacao-descricao" required placeholder="Ex: Compra Mercado">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label>Valor Total</label>
+                            <input type="number" id="transacao-valor" step="0.01" required placeholder="0,00">
+                        </div>
+                        <div class="form-group">
+                            <label>Nº Parcelas</label>
+                            <input type="number" id="transacao-parcelas" min="1" value="1" required oninput="gerarCamposData()">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="form-group">
+                            <label>Tipo</label>
+                            <select id="transacao-tipo" required>
+                                <option value="despesa" selected>Despesa</option>
+                                <option value="receita">Receita</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Categoria</label>
+                            <select id="transacao-tipo-categoria" required>
+                                <option disabled selected>Carregando...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Datas de Vencimento:</label>
+                        <div id="container-datas"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Salvar Transação</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="view-categorias" class="view-section">
+            <h2>Gerenciar Categorias</h2>
+            <div class="card" style="margin-top: 15px;">
+                <form id="nova-categoria-form" style="display:flex; gap:10px; align-items:flex-end; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
+                    <div style="flex: 2;">
+                        <label>Nova Categoria</label>
+                        <input type="text" id="cat-nome" placeholder="Ex: Combustível, Freelance..." required>
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Tipo</label>
+                        <select id="cat-tipo">
+                            <option value="despesa">Despesa</option>
+                            <option value="receita">Receita</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" style="height: 44px;">Adicionar</button>
+                </form>
+
+                <div class="categoria-grid">
+                    <div class="categoria-box">
+                        <h3 style="color: var(--danger); margin-bottom: 10px;">Despesas</h3>
+                        <div id="lista-categorias-despesa"></div>
+                    </div>
+                    <div class="categoria-box">
+                        <h3 style="color: var(--secondary); margin-bottom: 10px;">Receitas</h3>
+                        <div id="lista-categorias-receita"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="modal-edicao" class="modal-overlay hidden">
+        <div class="modal-content">
+            <span class="close-modal" onclick="fecharModal()">&times;</span>
+            <h3 style="margin-bottom: 20px;">Editar Parcela</h3>
+            <form id="form-editar" onsubmit="salvarEdicao(event)">
+                <input type="hidden" id="edit-id">
+                <div class="form-group">
+                    <label>Descrição</label>
+                    <input type="text" id="edit-descricao" required>
+                </div>
+                <div class="form-group">
+                    <label>Valor (R$)</label>
+                    <input type="number" id="edit-valor" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Vencimento</label>
+                    <input type="date" id="edit-vencimento" required>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="edit-status">
+                        <option value="a_pagar">A Pagar</option>
+                        <option value="pago">Pago</option>
+                        <option value="atrasado">Atrasado</option>
+                    </select>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-danger" onclick="confirmarExclusao()">Excluir</button>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="modal-confirmacao" class="modal-overlay hidden" style="z-index: 2000;">
+        <div class="modal-content" style="text-align: center; max-width: 400px;">
+            <h3 style="margin-bottom: 15px; color: var(--dark);">Confirmação</h3>
+            <p id="msg-confirmacao" style="margin-bottom: 25px; color: #666; font-size: 1.1rem;">Tem certeza?</p>
+            
+            <div style="display: flex; justify-content: center; gap: 15px;">
+                <button class="btn btn-danger" onclick="fecharModalConfirmacao()">Cancelar</button>
+                
+                <button id="btn-confirmar-acao" class="btn btn-secondary">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
