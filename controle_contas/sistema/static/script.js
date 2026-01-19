@@ -8,6 +8,7 @@ let mesAtualExtrato = new Date().toISOString().slice(0, 7);
 let parcelasAtuais = [];
 let filtroTipoExtrato = 'despesa'; 
 let todasCategorias = []; 
+let todosCartoes = []; 
 
 // Variáveis dos Gráficos
 let chartDespesas = null;
@@ -40,6 +41,7 @@ function setupEventListeners() {
     document.getElementById('register-form').addEventListener('submit', handleRegister);
     document.getElementById('nova-transacao-form').addEventListener('submit', handleNovaTransacao);
     document.getElementById('nova-categoria-form').addEventListener('submit', handleNovaCategoria);
+    document.getElementById('novo-cartao-form').addEventListener('submit', handleNovoCartao); 
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     
 
@@ -75,7 +77,11 @@ function navegarPara(tela) {
 
     if(tela === 'dashboard') loadDashboard();
     if(tela === 'extrato') loadParcelas();
-    if(tela === 'novo' || tela === 'categorias') loadCategorias(tela === 'categorias');
+    
+    if(tela === 'novo' || tela === 'categorias') {
+        loadCategorias(tela === 'categorias');
+        loadCartoes();
+    }
 }
 
 // --- AUTH ---
@@ -174,10 +180,7 @@ async function loadDashboard() {
             const saldo = data.total_receitas - data.total_despesas;
             const elBalanco = document.getElementById('dash-balanco');
             if(elBalanco) {
-                // Formatação de moeda
                 elBalanco.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saldo);
-                
-                // Muda a cor
                 elBalanco.className = 'balance-value ' + (saldo >= 0 ? 'balance-positive' : 'balance-negative');
             }
         }
@@ -186,19 +189,15 @@ async function loadDashboard() {
     }
 }
 
-// Função auxiliar para criar/atualizar gráficos
 function renderizarGrafico(canvasId, tipo, dados) {
     const ctx = document.getElementById(canvasId).getContext('2d');
-    
-    // Preparar dados
     const labels = dados.map(item => item.categoria);
     const valores = dados.map(item => item.total);
     
-    // Paleta de cores
     const coresBase = [
         // Clássicas 
-        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
-        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c0392b',
+        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59', 
+        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c039',
         
         // Tons Vivos & Pasteis
         '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e',
@@ -234,10 +233,7 @@ function renderizarGrafico(canvasId, tipo, dados) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { boxWidth: 12, font: { size: 10 } }
-                },
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -260,7 +256,7 @@ function renderizarGrafico(canvasId, tipo, dados) {
     }
 }
 
-// --- CATEGORIAS ---
+// --- CATEGORIAS & CARTÕES ---
 async function loadCategorias(renderizarNaTela = false) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/tipos`);
@@ -274,8 +270,92 @@ async function loadCategorias(renderizarNaTela = false) {
                 renderizarListaCategoriasGerenciamento();
             }
         }
-    } catch(e) {
-        console.error("Erro ao carregar categorias", e);
+    } catch(e) { console.error("Erro ao carregar categorias", e); }
+}
+
+async function loadCartoes() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/cartoes`);
+        if(res.ok) {
+            todosCartoes = await res.json();
+            renderizarSelectCartoes();
+            renderizarListaCartoesGerenciamento();
+        }
+    } catch(e) { console.error("Erro ao carregar cartões", e); }
+}
+
+// Lógica de Renderização de Cartões
+function renderizarSelectCartoes() {
+    const select = document.getElementById('transacao-cartao-id');
+    const firstOption = select.options[0];
+    select.innerHTML = ''; 
+    select.appendChild(firstOption);
+
+    todosCartoes.forEach(c => {
+        const option = document.createElement('option');
+        option.value = c.id;
+        option.textContent = c.nome;
+        select.appendChild(option);
+    });
+}
+
+function renderizarListaCartoesGerenciamento() {
+    const container = document.getElementById('lista-cartoes-cadastrados');
+    if(!container) return; 
+    container.innerHTML = '';
+
+    todosCartoes.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'categoria-item';
+        item.style.maxWidth = '400px';
+        item.innerHTML = `
+            <span>💳 ${c.nome}</span>
+            <button class="btn-icon-del" onclick="excluirCartao(${c.id})">&times;</button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+// Handlers de Cartão
+async function handleNovoCartao(e) {
+    e.preventDefault();
+    const nome = document.getElementById('cartao-nome').value;
+    
+    doPost('/api/cartoes', { nome: nome }, (data) => {
+        showNotification(data.mensagem);
+        document.getElementById('cartao-nome').value = '';
+        loadCartoes();
+    });
+}
+
+function excluirCartao(id) {
+    abrirConfirmacao("Deseja excluir este cartão?", async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/cartoes/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if(res.ok) {
+                showNotification(data.mensagem);
+                loadCartoes();
+            } else {
+                showNotification(data.erro, 'error');
+            }
+        } catch(e) { showNotification('Erro ao excluir', 'error'); }
+    });
+}
+
+// Lógica de Visibilidade do Select de Cartão na Transação
+function toggleSelectCartao() {
+    const forma = document.getElementById('transacao-forma-pagamento').value;
+    const divCartao = document.getElementById('div-select-cartao');
+    const inputCartao = document.getElementById('transacao-cartao-id');
+
+    if (forma === 'Cartão Crédito') {
+        divCartao.classList.remove('hidden');
+        inputCartao.setAttribute('required', 'required');
+    } else {
+        divCartao.classList.add('hidden');
+        inputCartao.removeAttribute('required');
+        inputCartao.value = "";
     }
 }
 
@@ -419,7 +499,6 @@ function renderizarTabela() {
     }
 
     let totalFiltrado = 0;
-    // Substitua o trecho dentro do loop listaFiltrada.forEach na função renderizarTabela
 
     listaFiltrada.forEach((p) => {
         totalFiltrado += parseFloat(p.valor);
@@ -431,14 +510,11 @@ function renderizarTabela() {
         let badge = '';
         let checkboxHtml = '';
 
-        // Lógica diferenciada para Receita vs Despesa
         if (p.tipo === 'receita') {
-            // Receitas: Sem checkbox, status fixo de "Recebido"
             checkboxHtml = `<span style="color:var(--secondary); font-weight:bold;">●</span>`;
-            badge = 'status-pago'; // Reutiliza a cor verde
-            p.status = 'Recebido'; // Força o texto para exibição
+            badge = 'status-pago';
+            p.status = 'Recebido';
         } else {
-            // Despesas: Comportamento padrão (checkbox se não pago)
             if(p.status === 'pago') badge = 'status-pago';
             else if(p.status === 'atrasado') badge = 'status-atrasado';
             else badge = 'status-a_pagar';
@@ -471,15 +547,23 @@ function renderizarTabela() {
     `;
 }
 
-// --- TRANSAÇÕES ---
+// --- TRANSAÇÕES (Atualizado) ---
 async function handleNovaTransacao(e) {
     e.preventDefault();
     const inputs = document.querySelectorAll('.input-data-parcela');
     const listaDatas = Array.from(inputs).map(input => input.value);
     
     const catId = document.getElementById('transacao-tipo-categoria').value;
+    const formaPagamento = document.getElementById('transacao-forma-pagamento').value;
+    const idCartao = document.getElementById('transacao-cartao-id').value;
+
     if(!catId || isNaN(catId)) {
         showNotification('Selecione uma categoria válida', 'error');
+        return;
+    }
+
+    if(formaPagamento === 'Cartão Crédito' && !idCartao) {
+        showNotification('Selecione qual cartão foi utilizado', 'error');
         return;
     }
 
@@ -489,12 +573,16 @@ async function handleNovaTransacao(e) {
         parcelas: parseInt(document.getElementById('transacao-parcelas').value),
         tipo: document.getElementById('transacao-tipo').value,
         id_tipo_categoria: parseInt(catId),
-        datas_parcelas: listaDatas
+        datas_parcelas: listaDatas,
+        forma_pagamento: formaPagamento,
+        id_cartao: idCartao ? parseInt(idCartao) : null
     };
+
     doPost('/nova_transacao', body, (data) => {
         showNotification(data.mensagem);
         document.getElementById('nova-transacao-form').reset();
         gerarCamposData();
+        toggleSelectCartao(); 
         document.getElementById('transacao-tipo').value = 'despesa';
         atualizarSelectCategorias('despesa');
         navegarPara('extrato');
@@ -555,9 +643,8 @@ function abrirModal(index) {
     }
 
     const selectCategoria = document.getElementById('edit-categoria');
-    selectCategoria.innerHTML = ''; // Limpa opções anteriores
+    selectCategoria.innerHTML = ''; 
 
-    // Filtra as categorias globais para mostrar apenas as do tipo correto (receita ou despesa)
     const categoriasCompativeis = todasCategorias.filter(c => c.categoria === p.tipo);
 
     if (categoriasCompativeis.length === 0) {
@@ -569,15 +656,10 @@ function abrirModal(index) {
             const option = document.createElement('option');
             option.value = cat.id;
             option.textContent = cat.nome;
-            
-            // Verifica se é a categoria atual da parcela para deixar selecionado
-            if (cat.id === p.id_categoria) {
-                option.selected = true;
-            }
+            if (cat.id === p.id_categoria) option.selected = true;
             selectCategoria.appendChild(option);
         });
     }
-    // -----------------------------------------------------
 
     document.getElementById('modal-edicao').classList.remove('hidden');
 }
@@ -621,7 +703,7 @@ function confirmarExclusao() {
             const data = await res.json();
             if (res.ok) {
                 showNotification(data.mensagem);
-                fecharModal(); // Fecha o modal de edição
+                fecharModal(); 
                 loadParcelas();
                 loadDashboard();
             } else showNotification(data.erro, 'error');
@@ -665,7 +747,6 @@ function showNotification(msg, type='success') {
     setTimeout(() => div.remove(), 4000);
 }
 
-// Variável para guardar a ação que será executada
 let acaoConfirmacaoAtual = null;
 
 function abrirConfirmacao(mensagem, callback) {
@@ -673,12 +754,10 @@ function abrirConfirmacao(mensagem, callback) {
     const txt = document.getElementById('msg-confirmacao');
     const btn = document.getElementById('btn-confirmar-acao');
 
-    // Define a mensagem
     txt.textContent = mensagem;
 
-    // Define o que acontece ao clicar em "Confirmar"
     btn.onclick = function() {
-        if (callback) callback(); // Executa a função passada
+        if (callback) callback(); 
         fecharModalConfirmacao();
     };
 
@@ -707,7 +786,6 @@ function aplicarRecorrencia(tipo) {
     const inputs = document.querySelectorAll('.input-data-parcela');
     if (inputs.length === 0) return;
 
-    // Pega a data da primeira parcela como base
     const primeiraDataVal = inputs[0].value;
     if (!primeiraDataVal) {
         showNotification('Preencha a data da primeira parcela antes de usar os atalhos.', 'error');
@@ -715,16 +793,14 @@ function aplicarRecorrencia(tipo) {
         return;
     }
 
-    // Separa ano, mês e dia para criar a data sem problemas de fuso horário
     const [anoBase, mesBase, diaBase] = primeiraDataVal.split('-').map(Number);
 
     inputs.forEach((input, index) => {
-        if (index === 0) return; // Pula a primeira parcela (que é a referência)
+        if (index === 0) return; 
 
         if (tipo === '=') {
             input.value = primeiraDataVal;
         } else {
-            // Cria um objeto Date base para calcular
             let novaData = new Date(anoBase, mesBase - 1, diaBase);
             let mesesParaAdicionar = 0;
 
@@ -733,7 +809,6 @@ function aplicarRecorrencia(tipo) {
             if (tipo === 'S') mesesParaAdicionar = index * 6;  
             if (tipo === 'A') mesesParaAdicionar = index * 12; 
 
-            // Adiciona os meses
             novaData.setMonth(novaData.getMonth() + mesesParaAdicionar);
 
             if (novaData.getDate() !== diaBase) {
