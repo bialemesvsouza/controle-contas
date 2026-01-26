@@ -404,6 +404,37 @@ def atualizar_atrasos(user_id):
     
     db.session.commit()
 
+# --- NOVA ROTA DO CARD DE CARTÃO ---
+@app.route('/api/dashboard/cartao_stats', methods=['GET'])
+@login_required
+def dashboard_cartao():
+    id_cartao = request.args.get('id_cartao')
+    inicio_str = request.args.get('inicio')
+    fim_str = request.args.get('fim')
+    
+    if not id_cartao or not inicio_str or not fim_str:
+        return jsonify({"erro": "Parâmetros incompletos"}), 400
+
+    try:
+        inicio = datetime.strptime(inicio_str, '%Y-%m-%d').date()
+        fim = datetime.strptime(fim_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({"erro": "Datas inválidas"}), 400
+
+    # Consulta: Soma das parcelas, filtradas por usuário, cartão, tipo despesa e data
+    resultados = db.session.query(Tipo.nome, db.func.sum(Parcela.valor))\
+        .join(Transacao, Transacao.id_tipo == Tipo.id)\
+        .join(Parcela, Parcela.id_transacao == Transacao.id)\
+        .filter(Parcela.id_usuario == current_user.id)\
+        .filter(Transacao.id_cartao == id_cartao)\
+        .filter(Transacao.tipo_transacao == 'despesa')\
+        .filter(Parcela.vencimento >= inicio, Parcela.vencimento <= fim)\
+        .group_by(Tipo.nome).all()
+
+    dados_grafico = [{"categoria": nome, "total": valor} for nome, valor in resultados]
+    
+    return jsonify(dados_grafico)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

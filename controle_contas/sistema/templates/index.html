@@ -105,6 +105,18 @@
                 </div>
             </div>
 
+            <div class="chart-card" style="margin-top: 20px;"> 
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3>Gastos por Cartão</h3>
+                    <select id="dash-card-select" style="max-width: 200px; padding: 5px;" onchange="atualizarGraficoCartao()">
+                        <option value="" disabled selected>Selecione um cartão...</option>
+                        </select>
+                </div>
+                <div class="chart-wrapper">
+                    <canvas id="chart-cartao-especifico"></canvas>
+                </div>
+            </div>
+
             <div class="card balance-card">
                 <h3>Balanço Geral</h3>
                 <div id="dash-balanco" class="balance-value">R$ 0,00</div>

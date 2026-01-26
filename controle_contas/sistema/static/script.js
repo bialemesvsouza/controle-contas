@@ -13,6 +13,7 @@ let todosCartoes = [];
 // Variáveis dos Gráficos
 let chartDespesas = null;
 let chartReceitas = null;
+let chartCartaoEspecifico = null; // NOVO
 
 document.addEventListener('DOMContentLoaded', function() {
     initDates();
@@ -183,6 +184,15 @@ async function loadDashboard() {
                 elBalanco.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saldo);
                 elBalanco.className = 'balance-value ' + (saldo >= 0 ? 'balance-positive' : 'balance-negative');
             }
+
+            // --- NOVO: Lógica do Card de Cartão ---
+            const selectCartao = document.getElementById('dash-card-select');
+            if (selectCartao && selectCartao.options.length <= 1) {
+                await preencherSelectCartoesDashboard();
+            }
+            if (selectCartao && selectCartao.value) {
+                atualizarGraficoCartao();
+            }
         }
     } catch (error) {
         console.error("Erro ao carregar dashboard:", error);
@@ -195,11 +205,8 @@ function renderizarGrafico(canvasId, tipo, dados) {
     const valores = dados.map(item => item.total);
     
     const coresBase = [
-        // Clássicas 
         '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59', 
         '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c039',
-        
-        // Tons Vivos & Pasteis
         '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e',
         '#f1c40f', '#e67e22', '#e74c3c', '#ecf0f1', '#95a5a6',
         '#f39c12', '#d35400', '#c0392b', '#bdc3c7', '#7f8c8d',
@@ -207,8 +214,6 @@ function renderizarGrafico(canvasId, tipo, dados) {
         '#00b894', '#00cec9', '#0984e3', '#6c5ce7', '#b2bec3',
         '#ffeaa7', '#fab1a0', '#ff7675', '#fd79a8', '#636e72',
         '#fdcb6e', '#e17055', '#d63031', '#e84393', '#2d3436',
-        
-        // Tons Escuros & Terrosos
         '#6D214F', '#182C61', '#FC427B', '#BDC581', '#82589F',
         '#58B19F', '#2C3A47', '#B33771', '#3B3B98', '#FD7272'
     ];
@@ -819,6 +824,100 @@ function aplicarRecorrencia(tipo) {
             const diaIso = String(novaData.getDate()).padStart(2, '0');
             
             input.value = `${anoIso}-${mesIso}-${diaIso}`;
+        }
+    });
+}
+
+
+// --- NOVAS FUNÇÕES PARA O GRÁFICO DE CARTÃO ---
+
+async function preencherSelectCartoesDashboard() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/cartoes`);
+        if (res.ok) {
+            const cartoes = await res.json();
+            const select = document.getElementById('dash-card-select');
+            
+            // Limpa mantendo o placeholder
+            select.innerHTML = '<option value="" disabled selected>Selecione um cartão...</option>';
+            
+            cartoes.forEach(c => {
+                const option = document.createElement('option');
+                option.value = c.id;
+                option.textContent = c.nome;
+                select.appendChild(option);
+            });
+
+            // Se houver cartões, seleciona o primeiro automaticamente e carrega o gráfico
+            if (cartoes.length > 0) {
+                select.value = cartoes[0].id;
+                atualizarGraficoCartao();
+            }
+        }
+    } catch (e) { console.error("Erro ao carregar cartões no dashboard", e); }
+}
+
+async function atualizarGraficoCartao() {
+    const idCartao = document.getElementById('dash-card-select').value;
+    const inicio = document.getElementById('dash-inicio').value;
+    const fim = document.getElementById('dash-fim').value;
+
+    if (!idCartao) return;
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/cartao_stats?id_cartao=${idCartao}&inicio=${inicio}&fim=${fim}`);
+        if (res.ok) {
+            const dados = await res.json();
+            renderizarGraficoCartao(dados);
+        }
+    } catch (error) {
+        console.error("Erro ao atualizar gráfico de cartão:", error);
+    }
+}
+
+function renderizarGraficoCartao(dados) {
+    const ctx = document.getElementById('chart-cartao-especifico').getContext('2d');
+    const labels = dados.map(item => item.categoria);
+    const valores = dados.map(item => item.total);
+
+    // Cores (Reutilizando seu array de cores existente ou definindo um novo)
+    const cores = [
+        '#6c5ce7', '#0984e3', '#00cec9', '#00b894', '#fdcb6e', 
+        '#e17055', '#d63031', '#e84393', '#2d3436', '#636e72'
+    ];
+
+    if (chartCartaoEspecifico) {
+        chartCartaoEspecifico.destroy();
+    }
+
+    chartCartaoEspecifico = new Chart(ctx, {
+        type: 'doughnut', // Usei doughnut para diferenciar um pouco, pode ser 'pie'
+        data: {
+            labels: labels,
+            datasets: [{
+                data: valores,
+                backgroundColor: cores,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'right' }, 
+                title: { display: true, text: 'Distribuição de Gastos' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.label || '';
+                            if (label) label += ': ';
+                            const valor = context.raw;
+                            label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+                            return label;
+                        }
+                    }
+                }
+            }
         }
     });
 }
