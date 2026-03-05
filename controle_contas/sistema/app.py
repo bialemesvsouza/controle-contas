@@ -66,9 +66,7 @@ def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
 # --- LÓGICA AUXILIAR ---
-def gerar_parcelas_customizadas(transacao_obj, lista_datas):
-    valor_parc = transacao_obj.valor_total / transacao_obj.qtd_parcelas
-    
+def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
     if transacao_obj.tipo_transacao == 'receita':
         status_inicial = 'recebido'
     else:
@@ -76,6 +74,12 @@ def gerar_parcelas_customizadas(transacao_obj, lista_datas):
 
     for i, data_str in enumerate(lista_datas):
         data_venc = datetime.strptime(data_str, '%Y-%m-%d').date()
+        
+        # Se a UI enviou a lista de valores customizados, usamos eles
+        if lista_valores and len(lista_valores) > i:
+            valor_parc = float(lista_valores[i])
+        else:
+            valor_parc = transacao_obj.valor_total / transacao_obj.qtd_parcelas
         
         nova_parcela = Parcela(
             id_transacao=transacao_obj.id,
@@ -235,7 +239,6 @@ def nova_transacao():
     if not tipo_check:
          return jsonify({"erro": "Categoria inválida"}), 400
 
-    # Lógica do Cartão
     id_cartao = None
     if dados.get('forma_pagamento') == 'Cartão Crédito':
         id_cartao = dados.get('id_cartao')
@@ -252,7 +255,9 @@ def nova_transacao():
     )
     db.session.add(nova)
     db.session.commit()
-    gerar_parcelas_customizadas(nova, dados['datas_parcelas'])
+    
+    # Agora passamos os valores_parcelas para a função
+    gerar_parcelas_customizadas(nova, dados['datas_parcelas'], dados.get('valores_parcelas'))
     return jsonify({"mensagem": "Transação criada com sucesso!"})
 
 @app.route('/dashboard', methods=['GET'])

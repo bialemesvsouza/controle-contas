@@ -3,425 +3,409 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartGrana | Sistema Financeiro</title>
+    <title>SmartGrana</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:ital,wght@0,400..700;1,400..700&display=swap" rel="stylesheet">
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     
     <link rel="stylesheet" href="/static/style.css">
+    
+    <style>
+        /* Pequenos ajustes para os Badges e Notificações */
+        .status-badge { padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 600; display: inline-block; text-transform: uppercase; }
+        .status-a_pagar { background-color: rgba(245, 167, 13, 0.15); color: #F5A70D; }
+        .status-pago { background-color: rgba(0, 153, 102, 0.15); color: #009966; }
+        .status-atrasado { background-color: rgba(248, 54, 54, 0.15); color: #F83636; }
+        
+        .notification { padding: 15px 20px; border-radius: 8px; font-weight: 600; color: #fff; margin-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); animation: slideInRight 0.3s ease-out; }
+        .notification.success { background-color: #009966; }
+        .notification.error { background-color: #F83636; }
+        @keyframes slideInRight { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+        .d-none-important { display: none !important; }
+    </style>
+    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-body-tertiary">
 
-    <div id="auth-section" class="auth-wrapper min-vh-100 px-2 d-flex align-items-center justify-content-center">
-        <div class="container">
-            <div class="row g-0">
-                <div class="col-xl-5 col-lg-6 m-auto py-4">
-                    <div class="card card-body p-4 p-sm-5 shadow-lg rounded-4 border-0">
-                        <div class="mb-4 text-center">
-                            <h3 class="fw-bold text-primary"><i class='bx bx-wallet'></i> SmartGrana Finanças</h3>
+    <div id="auth-section" class="auth-wrapper min-vh-100 px-2 d-none-important">
+        <div class="row g-0 min-vh-100 d-flex align-items-center justify-content-center">
+            <div class="col-xl-4 col-lg-5 col-md-7 m-auto py-4">
+                <div class="card card-body p-4 p-sm-5 rounded-4 shadow-lg border-0 bg-white">
+                    <div class="mb-4 text-center">
+                        <h3 class="fw-bold text-primary"><i class='bx bx-wallet'></i> SmartGrana</h3>
+                    </div>
+                    
+                    <div class="d-flex mb-4 border-bottom">
+                        <button class="btn btn-link flex-fill text-decoration-none text-dark fw-bold border-bottom border-primary border-3 rounded-0" id="tab-login-btn" onclick="toggleAuth('login')">Login</button>
+                        <button class="btn btn-link flex-fill text-decoration-none text-muted rounded-0" id="tab-register-btn" onclick="toggleAuth('register')">Criar Conta</button>
+                    </div>
+                    
+                    <div id="login-tab">
+                        <div class="text-center mb-4">
+                            <h5 class="mb-1">Bem-vindo de volta!</h5>
                         </div>
-                        
-                        <div class="d-flex mb-4 border-bottom">
-                            <button class="btn btn-link flex-fill text-decoration-none text-dark fw-bold border-bottom border-primary border-3 rounded-0" id="tab-login-btn" onclick="toggleAuth('login')">Login</button>
-                            <button class="btn btn-link flex-fill text-decoration-none text-muted rounded-0" id="tab-register-btn" onclick="toggleAuth('register')">Criar Conta</button>
-                        </div>
-                        
-                        <div id="login-tab">
-                            <div class="text-center mb-4">
-                                <h5 class="mb-1">Bem-vindo de volta!</h5>
-                                <p class="text-muted small">Faça login para acessar seu painel.</p>
+                        <form id="login-form">
+                            <div class="mb-3">
+                                <label class="form-label fw-medium">Usuário</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class='bx bx-user'></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0 bg-light" id="login-username" required placeholder="Digite seu usuário">
+                                </div>
                             </div>
-                            <form id="login-form">
-                                <div class="mb-3">
-                                    <label class="form-label fw-medium">Usuário</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-user'></i></span>
-                                        <input type="text" class="form-control border-start-0 ps-0 bg-light" id="login-username" required placeholder="Digite seu usuário">
-                                    </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-medium">Senha</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
+                                    <input type="password" class="form-control border-start-0 ps-0 bg-light" id="login-password" required placeholder="********">
                                 </div>
-                                <div class="mb-4">
-                                    <label class="form-label fw-medium">Senha</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
-                                        <input type="password" class="form-control border-start-0 ps-0 bg-light" id="login-password" required placeholder="********">
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Entrar no Sistema</button>
-                            </form>
-                        </div>
-                        
-                        <div id="register-tab" class="hidden">
-                            <div class="text-center mb-4">
-                                <h5 class="mb-1">Crie sua conta</h5>
-                                <p class="text-muted small">Comece a gerenciar suas finanças agora.</p>
                             </div>
-                            <form id="register-form">
-                                <div class="mb-3">
-                                    <label class="form-label fw-medium">Novo Usuário</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-user-plus'></i></span>
-                                        <input type="text" class="form-control border-start-0 ps-0 bg-light" id="register-username" required placeholder="Escolha um usuário">
-                                    </div>
-                                </div>
-                                <div class="mb-4">
-                                    <label class="form-label fw-medium">Crie uma Senha</label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
-                                        <input type="password" class="form-control border-start-0 ps-0 bg-light" id="register-password" required placeholder="********">
-                                    </div>
-                                </div>
-                                <button type="submit" class="btn btn-secondary w-100 py-2 fw-semibold">Registrar</button>
-                            </form>
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Entrar no Sistema</button>
+                        </form>
+                    </div>
+                    
+                    <div id="register-tab" class="d-none">
+                        <div class="text-center mb-4">
+                            <h5 class="mb-1">Crie sua conta</h5>
                         </div>
+                        <form id="register-form">
+                            <div class="mb-3">
+                                <label class="form-label fw-medium">Novo Usuário</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class='bx bx-user-plus'></i></span>
+                                    <input type="text" class="form-control border-start-0 ps-0 bg-light" id="register-username" required placeholder="Escolha um usuário">
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-medium">Crie uma Senha</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
+                                    <input type="password" class="form-control border-start-0 ps-0 bg-light" id="register-password" required placeholder="********">
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-secondary w-100 py-2 fw-semibold">Registrar</button>
+                        </form>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="app-nav" class="page-layout hidden">
+    <div id="app-nav" class="page-layout d-none-important">
         
-        <aside class="app-menubar shadow-sm">
-            <div class="app-navbar-brand py-3 px-4 border-bottom">
+        <header class="app-header bg-white border-bottom shadow-sm">
+            <div class="app-header-inner w-100 px-4 d-flex align-items-center justify-content-between">
+                <div class="app-header-start">
+                    <h5 class="page-title mb-0 fw-bold text-dark">Visão Geral</h5>
+                </div>
+                <div class="app-header-end d-flex align-items-center gap-3">
+                    <div class="d-flex align-items-center gap-2 bg-light p-1 pe-3 rounded-pill border mt-3">
+                        <div class="avatar avatar-sm rounded-circle bg-primary text-white d-flex align-items-center justify-content-center fw-bold" style="width: 32px; height: 32px;" >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+                                <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0"/>
+                                <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1"/>
+                            </svg>
+                        </div>
+                        <span class="fw-semibold text-dark text-sm" id="username-display">Visitante</span>
+                    </div>
+                    <button id="logout-btn" class="btn btn-light border btn-sm text-danger d-none-important mt-3"><i class='bx bx-log-out'></i> Sair</button>
+                </div>
+            </div>
+        </header>
+
+        <aside class="app-menubar border-end">
+            <div class="app-navbar-brand py-3 px-4 border-bottom bg-white">
                 <h4 class="text-primary fw-bold mb-0"><i class='bx bx-pie-chart-alt-2'></i> SmartGrana</h4>
             </div>
             <div class="app-navbar mt-3 px-3">
-                <ul class="side-menubar list-unstyled">
-                    <li class="menu-heading text-muted text-uppercase text-xs fw-bold mb-2 px-3">Menu Principal</li>
-                    
-                    <li class="menu-item mb-1">
-                        <a class="menu-link nav-item active d-flex align-items-center gap-2 p-2 rounded text-decoration-none text-dark" onclick="navegarPara('dashboard')">
-                            <i class='bx bx-home-alt fs-5 text-muted'></i> <span class="fw-medium">Dashboard</span>
-                        </a>
-                    </li>
-                    <li class="menu-item mb-1">
-                        <a class="menu-link nav-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none text-dark" onclick="navegarPara('extrato')">
-                            <i class='bx bx-list-ul fs-5 text-muted'></i> <span class="fw-medium">Extrato Mensal</span>
-                        </a>
-                    </li>
-                    <li class="menu-item mb-1">
-                        <a class="menu-link nav-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none text-dark" onclick="navegarPara('novo')">
-                            <i class='bx bx-plus-circle fs-5 text-muted'></i> <span class="fw-medium">Nova Transação</span>
-                        </a>
-                    </li>
+                <ul class="menubar list-unstyled">
+                    <li class="menu-heading text-muted text-uppercase text-xs fw-bold mb-2 px-3 pt-3">Menu Principal</li>
+                    <li class="menu-item mb-1"><a class="menu-link active d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('dashboard')"><i class='bx bx-home-alt fs-5'></i> <span class="fw-medium">Dashboard</span></a></li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('extrato')"><i class='bx bx-list-ul fs-5'></i> <span class="fw-medium">Extrato Mensal</span></a></li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('novo')"><i class='bx bx-plus-circle fs-5'></i> <span class="fw-medium">Nova Transação</span></a></li>
                     
                     <li class="menu-heading text-muted text-uppercase text-xs fw-bold mb-2 mt-4 px-3">Configurações</li>
-                    <li class="menu-item mb-1">
-                        <a class="menu-link nav-item d-flex align-items-center gap-2 p-2 rounded text-decoration-none text-dark" onclick="navegarPara('categorias')">
-                            <i class='bx bx-cog fs-5 text-muted'></i> <span class="fw-medium">Cadastros</span>
-                        </a>
-                    </li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('categorias')"><i class='bx bx-cog fs-5'></i> <span class="fw-medium">Cadastros</span></a></li>
                 </ul>
             </div>
         </aside>
 
-        <header class="app-header bg-white shadow-sm border-bottom d-flex align-items-center justify-content-between px-4">
-            <div class="d-flex align-items-center">
-                <h5 class="mb-0 fw-bold text-dark page-title">Visão Geral</h5>
-            </div>
-            <div class="d-flex align-items-center gap-3">
-                <div class="d-flex align-items-center gap-2 bg-light p-1 pe-3 rounded-pill border">
-                    <div class="avatar-status-success">
-                        <img src="https://ui-avatars.com/api/?name=User&background=5955D1&color=fff" class="rounded-circle" width="32" height="32" alt="Avatar">
-                    </div>
-                    <span class="fw-semibold text-dark text-sm" id="username-display">Visitante</span>
-                </div>
-                <button id="logout-btn" class="btn btn-light border btn-sm text-danger hidden"><i class='bx bx-log-out'></i> Sair</button>
-            </div>
-        </header>
+        <main class="app-wrapper bg-body-tertiary">
+            <div class="container-fluid p-4">
+                <div id="notification-area" class="position-fixed top-0 end-0 p-3" style="z-index: 1050"></div>
 
-        <main class="app-wrapper p-4 bg-body-tertiary min-vh-100">
-            <div id="notification-area" class="position-fixed top-0 end-0 p-3" style="z-index: 1050"></div>
+                <div id="view-dashboard" class="view-section">
+                    <div class="card border-0 shadow-sm rounded-4 mb-4">
+                        <div class="card-body p-3 d-flex flex-wrap gap-3 align-items-end">
+                            <div style="flex:1; min-width: 150px;">
+                                <label class="form-label text-muted small fw-medium">Data Início</label>
+                                <input type="date" class="form-control form-control-sm" id="dash-inicio">
+                            </div>
+                            <div style="flex:1; min-width: 150px;">
+                                <label class="form-label text-muted small fw-medium">Data Fim</label>
+                                <input type="date" class="form-control form-control-sm" id="dash-fim">
+                            </div>
+                            <div>
+                                <button class="btn btn-primary btn-sm px-4 fw-medium" onclick="loadDashboard()">Filtrar</button>
+                            </div>
+                        </div>
+                    </div>
 
-            <div id="view-dashboard" class="view-section active">
-                
-                <div class="card border-0 shadow-sm rounded-4 mb-4">
-                    <div class="card-body p-3 d-flex flex-wrap gap-3 align-items-end">
-                        <div style="flex:1; min-width: 150px;">
-                            <label class="form-label text-muted small fw-medium">Data Início</label>
-                            <input type="date" class="form-control form-control-sm" id="dash-inicio">
-                        </div>
-                        <div style="flex:1; min-width: 150px;">
-                            <label class="form-label text-muted small fw-medium">Data Fim</label>
-                            <input type="date" class="form-control form-control-sm" id="dash-fim">
-                        </div>
-                        <div>
-                            <button class="btn btn-primary btn-sm px-4 fw-medium" onclick="loadDashboard()">Filtrar</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-3 mb-4">
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-body d-flex align-items-center gap-3">
-                                <div class="bg-primary-subtle text-primary p-3 rounded-3 fs-3">
-                                    <i class='bx bx-wallet'></i>
-                                </div>
-                                <div>
-                                    <span class="text-muted fw-medium small">Balanço Geral</span>
-                                    <h3 class="fw-bold mb-0 mt-1" id="dash-balanco">R$ 0,00</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-body d-flex align-items-center gap-3">
-                                <div class="bg-success-subtle text-success p-3 rounded-3 fs-3">
-                                    <i class='bx bx-trending-up'></i>
-                                </div>
-                                <div>
-                                    <span class="text-muted fw-medium small">Total Receitas</span>
-                                    <h3 class="fw-bold mb-0 mt-1" id="dash-total-receitas">R$ 0,00</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-body d-flex align-items-center gap-3">
-                                <div class="bg-danger-subtle text-danger p-3 rounded-3 fs-3">
-                                    <i class='bx bx-trending-down'></i>
-                                </div>
-                                <div>
-                                    <span class="text-muted fw-medium small">Total Despesas</span>
-                                    <h3 class="fw-bold mb-0 mt-1" id="dash-total-despesas">R$ 0,00</h3>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row g-3">
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-0 pt-4 pb-0">
-                                <h6 class="fw-bold text-dark mb-0">Despesas por Categoria</h6>
-                            </div>
-                            <div class="card-body">
-                                <div style="position: relative; height: 250px;"><canvas id="chart-despesas"></canvas></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-4 col-md-6">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-0 pt-4 pb-0">
-                                <h6 class="fw-bold text-dark mb-0">Receitas por Categoria</h6>
-                            </div>
-                            <div class="card-body">
-                                <div style="position: relative; height: 250px;"><canvas id="chart-receitas"></canvas></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-xl-4 col-md-12">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
-                                <h6 class="fw-bold text-dark mb-0">Gastos por Cartão</h6>
-                                <select id="dash-card-select" class="form-select form-select-sm w-auto" onchange="atualizarGraficoCartao()">
-                                    <option value="" disabled selected>Selecione...</option>
-                                </select>
-                            </div>
-                            <div class="card-body">
-                                <div style="position: relative; height: 250px;"><canvas id="chart-cartao-especifico"></canvas></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-extrato" class="view-section">
-                <div class="card border-0 shadow-sm rounded-4 mb-4">
-                    <div class="card-body p-3">
-                        <div class="d-flex align-items-center justify-content-between bg-light rounded-3 p-1 mb-3">
-                            <button class="btn btn-sm btn-white text-dark" onclick="mudarMesRover(-1)"><i class='bx bx-chevron-left'></i></button>
-                            <div class="d-flex w-100 justify-content-evenly text-center" id="rover-lista" style="font-size: 0.9rem;"></div>
-                            <button class="btn btn-sm btn-white text-dark" onclick="mudarMesRover(1)"><i class='bx bx-chevron-right'></i></button>
-                        </div>
-                        
-                        <div class="d-flex justify-content-center gap-2">
-                            <button id="btn-tab-despesa" class="btn btn-outline-danger btn-sm active px-4 rounded-pill fw-medium" onclick="mudarTipoExtrato('despesa')">Despesas</button>
-                            <button id="btn-tab-receita" class="btn btn-outline-success btn-sm px-4 rounded-pill fw-medium" onclick="mudarTipoExtrato('receita')">Receitas</button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-header bg-transparent border-0 pt-4 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
-                        <h5 class="fw-bold text-dark mb-0" id="titulo-lista-mes">Despesas do Mês</h5>
-                        <button id="btn-baixar-lote" class="btn btn-success btn-sm fw-medium hidden" onclick="baixarSelecionados()">
-                            <i class='bx bx-check-double'></i> Confirmar Baixa
-                        </button>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0 text-sm">
-                                <thead class="table-light text-muted text-uppercase" style="font-size: 0.75rem;">
-                                    <tr>
-                                        <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="check-all" onclick="toggleTodos(this)"></th>
-                                        <th>Descrição</th>
-                                        <th>Parc.</th>
-                                        <th>Categoria</th>
-                                        <th>Valor</th>
-                                        <th>Vencimento</th>
-                                        <th>Status</th>
-                                        <th class="text-end pe-4"> </th>
-                                    </tr>
-                                </thead>
-                                <tbody id="parcelas-table-body" class="border-top-0"></tbody>
-                                <tfoot id="parcelas-footer" class="table-light"></tfoot>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-novo" class="view-section">
-                <div class="row justify-content-center">
-                    <div class="col-lg-8">
-                        <div class="card border-0 shadow-sm rounded-4">
-                            <div class="card-header bg-transparent border-bottom pt-4 pb-3">
-                                <h5 class="fw-bold text-dark mb-0"><i class='bx bx-plus-circle text-primary'></i> Cadastrar Transação</h5>
-                            </div>
-                            <div class="card-body p-4">
-                                <form id="nova-transacao-form">
-                                    <div class="mb-3">
-                                        <label class="form-label fw-medium text-muted small">Descrição</label>
-                                        <input type="text" class="form-control bg-light border-0" id="transacao-descricao" required placeholder="Ex: Compra Mercado">
+                    <div class="row g-3 mb-4">
+                        <div class="col-xl-4 col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-body d-flex align-items-center gap-3">
+                                    <div class="bg-primary-subtle text-primary p-3 rounded-3 fs-3"><i class='bx bx-wallet'></i></div>
+                                    <div>
+                                        <span class="text-muted fw-medium small">Balanço Geral</span>
+                                        <h3 class="fw-bold mb-0 mt-1" id="dash-balanco">R$ 0,00</h3>
                                     </div>
-                                    
-                                    <div class="row g-3 mb-3">
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-medium text-muted small">Valor Total (R$)</label>
-                                            <input type="number" class="form-control bg-light border-0" id="transacao-valor" step="0.01" required placeholder="0,00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-4 col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-body d-flex align-items-center gap-3">
+                                    <div class="bg-success-subtle text-success p-3 rounded-3 fs-3"><i class='bx bx-trending-up'></i></div>
+                                    <div>
+                                        <span class="text-muted fw-medium small">Total Receitas</span>
+                                        <h3 class="fw-bold mb-0 mt-1" id="dash-total-receitas">R$ 0,00</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-4 col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-body d-flex align-items-center gap-3">
+                                    <div class="bg-danger-subtle text-danger p-3 rounded-3 fs-3"><i class='bx bx-trending-down'></i></div>
+                                    <div>
+                                        <span class="text-muted fw-medium small">Total Despesas</span>
+                                        <h3 class="fw-bold mb-0 mt-1" id="dash-total-despesas">R$ 0,00</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-xl-4 col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-0 pt-4 pb-0"><h6 class="fw-bold text-dark mb-0">Despesas por Categoria</h6></div>
+                                <div class="card-body"><div style="position: relative; height: 250px;"><canvas id="chart-despesas"></canvas></div></div>
+                            </div>
+                        </div>
+                        <div class="col-xl-4 col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-0 pt-4 pb-0"><h6 class="fw-bold text-dark mb-0">Receitas por Categoria</h6></div>
+                                <div class="card-body"><div style="position: relative; height: 250px;"><canvas id="chart-receitas"></canvas></div></div>
+                            </div>
+                        </div>
+                        <div class="col-xl-4 col-md-12">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+                                    <h6 class="fw-bold text-dark mb-0">Gastos por Cartão</h6>
+                                    <select id="dash-card-select" class="form-select form-select-sm w-auto" onchange="atualizarGraficoCartao()"><option value="" disabled selected>Selecione...</option></select>
+                                </div>
+                                <div class="card-body"><div style="position: relative; height: 250px;"><canvas id="chart-cartao-especifico"></canvas></div></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-extrato" class="view-section d-none">
+                    <div class="card border-0 shadow-sm rounded-4 mb-4">
+                        <div class="card-body p-3">
+                            <div class="d-flex align-items-center justify-content-between bg-light rounded-3 p-1 mb-3">
+                                <button class="btn btn-sm btn-white text-dark" onclick="mudarMesRover(-1)"><i class='bx bx-chevron-left'></i></button>
+                                <div class="d-flex w-100 justify-content-evenly text-center" id="rover-lista" style="font-size: 0.9rem;"></div>
+                                <button class="btn btn-sm btn-white text-dark" onclick="mudarMesRover(1)"><i class='bx bx-chevron-right'></i></button>
+                            </div>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button id="btn-tab-despesa" class="btn btn-outline-danger btn-sm active px-4 rounded-pill fw-medium" onclick="mudarTipoExtrato('despesa')">Despesas</button>
+                                <button id="btn-tab-receita" class="btn btn-outline-success btn-sm px-4 rounded-pill fw-medium" onclick="mudarTipoExtrato('receita')">Receitas</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-header bg-transparent border-0 pt-4 pb-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <h5 class="fw-bold text-dark mb-0" id="titulo-lista-mes">Despesas do Mês</h5>
+                            <button id="btn-baixar-lote" class="btn btn-success btn-sm fw-medium d-none" onclick="baixarSelecionados()"><i class='bx bx-check-double'></i> Confirmar Baixa</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0 text-sm">
+                                    <thead class="table-light text-muted text-uppercase" style="font-size: 0.75rem;">
+                                        <tr>
+                                            <th class="text-center" style="width: 50px;"><input class="form-check-input" type="checkbox" id="check-all" onclick="toggleTodos(this)"></th>
+                                            <th>Descrição</th>
+                                            <th>Parc.</th>
+                                            <th>Categoria</th>
+                                            <th>Valor</th>
+                                            <th>Vencimento</th>
+                                            <th>Status</th>
+                                            <th class="text-end pe-4"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="parcelas-table-body" class="border-top-0"></tbody>
+                                    <tfoot id="parcelas-footer" class="table-light"></tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-novo" class="view-section d-none">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-8">
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-plus-circle text-primary'></i> Cadastrar Transação</h5>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form id="nova-transacao-form">
+                                        <div class="mb-3">
+                                            <label class="form-label fw-medium text-muted small">Descrição</label>
+                                            <input type="text" class="form-control bg-light border-0" id="transacao-descricao" required placeholder="Ex: Compra Mercado">
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label fw-medium text-muted small">Nº Parcelas</label>
-                                            <input type="number" class="form-control bg-light border-0" id="transacao-parcelas" min="1" value="1" required oninput="gerarCamposData()">
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-medium text-muted small">Valor Total (R$)</label>
+                                                <input type="number" class="form-control bg-light border-0" id="transacao-valor" step="0.01" required placeholder="0,00">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-medium text-muted small">Nº Parcelas</label>
+                                                <input type="number" class="form-control bg-light border-0" id="transacao-parcelas" min="1" value="1" required oninput="gerarCamposData()">
+                                            </div>
                                         </div>
-                                    </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-medium text-muted small">Forma de Pagamento</label>
+                                            <select class="form-select bg-light border-0" id="transacao-forma-pagamento" required onchange="toggleSelectCartao()">
+                                                <option value="Pix">PIX</option>
+                                                <option value="Cartão Crédito">Cartão Crédito</option>
+                                                <option value="Cartão Débito">Cartão Débito</option>
+                                                <option value="Dinheiro">Dinheiro</option>
+                                                <option value="Transferência Bancária">Transferência Bancária</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3 d-none p-3 bg-primary-subtle rounded-3" id="div-select-cartao">
+                                            <label class="form-label fw-medium text-primary small mb-1">Selecione o Cartão</label>
+                                            <select class="form-select border-primary" id="transacao-cartao-id">
+                                                <option value="" disabled selected>Escolha um cartão...</option>
+                                            </select>
+                                        </div>
+                                        <div class="row g-3 mb-3">
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-medium text-muted small">Tipo</label>
+                                                <select class="form-select bg-light border-0" id="transacao-tipo" required>
+                                                    <option value="despesa" selected>Despesa</option>
+                                                    <option value="receita">Receita</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label fw-medium text-muted small">Categoria</label>
+                                                <select class="form-select bg-light border-0" id="transacao-tipo-categoria" required>
+                                                    <option disabled selected>Carregando...</option>
+                                                </select>
+                                            </div>
+                                        </div>
 
-                                    <div class="mb-3">
-                                        <label class="form-label fw-medium text-muted small">Forma de Pagamento</label>
-                                        <select class="form-select bg-light border-0" id="transacao-forma-pagamento" required onchange="toggleSelectCartao()">
-                                            <option value="Pix">PIX</option>
-                                            <option value="Cartão Crédito">Cartão Crédito</option>
-                                            <option value="Cartão Débito">Cartão Débito</option>
-                                            <option value="Dinheiro">Dinheiro</option>
-                                            <option value="Transferência Bancária">Transferência Bancária</option>
-                                            <option value="Vale Alimentação">Vale Alimentação</option>
-                                        </select>
-                                    </div>
+                                        <div class="mb-4">
+                                            <div class="d-flex flex-wrap justify-content-between align-items-end mb-2 border-bottom pb-2">
+                                                <label class="form-label fw-bold text-dark mb-0"><i class='bx bx-list-ol text-primary'></i> Detalhamento das Parcelas</label>
+                                                <div class="text-end">
+                                                    <span class="text-muted small fw-medium">Soma: <span id="soma-parcelas" class="text-primary fw-bold">R$ 0,00</span></span>
+                                                    <span class="text-muted small fw-medium ms-3">Diferença: <span id="diferenca-parcelas" class="text-success fw-bold">R$ 0,00</span></span>
+                                                </div>
+                                            </div>
+                                            <div class="table-responsive border rounded-3 bg-white shadow-sm">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead class="table-light text-muted small text-uppercase">
+                                                        <tr>
+                                                            <th class="text-center" style="width: 50px;">#</th>
+                                                            <th>Valor (R$)</th>
+                                                            <th>Vencimento</th>
+                                                            <th class="text-center" style="width: 140px;" title="Copiar para as parcelas de baixo"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="container-datas">
+                                                        </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
 
-                                    <div class="mb-3 hidden p-3 bg-primary-subtle rounded-3" id="div-select-cartao">
-                                        <label class="form-label fw-medium text-primary small mb-1">Selecione o Cartão</label>
-                                        <select class="form-select border-primary" id="transacao-cartao-id">
-                                            <option value="" disabled selected>Escolha um cartão...</option>
-                                        </select>
-                                    </div>
+                                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">Salvar Transação</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                                    <div class="row g-3 mb-3">
+                <div id="view-categorias" class="view-section d-none">
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-category text-primary'></i> Categorias</h5>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form id="nova-categoria-form" class="row g-2 mb-4 align-items-end border-bottom pb-4">
                                         <div class="col-md-6">
-                                            <label class="form-label fw-medium text-muted small">Tipo</label>
-                                            <select class="form-select bg-light border-0" id="transacao-tipo" required>
-                                                <option value="despesa" selected>Despesa</option>
+                                            <label class="form-label text-muted small">Nova Categoria</label>
+                                            <input type="text" class="form-control bg-light border-0" id="cat-nome" placeholder="Ex: Combustível..." required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label text-muted small">Tipo</label>
+                                            <select class="form-select bg-light border-0" id="cat-tipo">
+                                                <option value="despesa">Despesa</option>
                                                 <option value="receita">Receita</option>
                                             </select>
                                         </div>
+                                        <div class="col-md-2">
+                                            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
+                                        </div>
+                                    </form>
+                                    <div class="row g-4">
                                         <div class="col-md-6">
-                                            <label class="form-label fw-medium text-muted small">Categoria</label>
-                                            <select class="form-select bg-light border-0" id="transacao-tipo-categoria" required>
-                                                <option disabled selected>Carregando...</option>
-                                            </select>
+                                            <h6 class="text-danger fw-bold border-bottom pb-2 mb-3">Despesas</h6>
+                                            <div id="lista-categorias-despesa" class="d-flex flex-column gap-2"></div>
                                         </div>
-                                    </div>
-
-                                    <div class="mb-4 p-3 border rounded-3 bg-white">
-                                        <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <label class="form-label fw-bold text-dark mb-0">Datas de Vencimento:</label>
-                                            <div class="btn-group btn-group-sm">
-                                                <button type="button" class="btn btn-outline-secondary" onclick="aplicarRecorrencia('=')" title="Repetir data igual">=</button>
-                                                <button type="button" class="btn btn-outline-secondary" onclick="aplicarRecorrencia('M')" title="Mensal">Mês</button>
-                                                <button type="button" class="btn btn-outline-secondary" onclick="aplicarRecorrencia('A')" title="Anual">Ano</button>
-                                            </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Receitas</h6>
+                                            <div id="lista-categorias-receita" class="d-flex flex-column gap-2"></div>
                                         </div>
-                                        <div id="container-datas" class="d-flex flex-wrap gap-2"></div>
-                                    </div>
-
-                                    <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">Salvar Transação</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-categorias" class="view-section">
-                <div class="row g-4">
-                    <div class="col-lg-7">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-bottom pt-4 pb-3">
-                                <h5 class="fw-bold text-dark mb-0"><i class='bx bx-category text-primary'></i> Categorias</h5>
-                            </div>
-                            <div class="card-body p-4">
-                                <form id="nova-categoria-form" class="row g-2 mb-4 align-items-end border-bottom pb-4">
-                                    <div class="col-md-6">
-                                        <label class="form-label text-muted small">Nova Categoria</label>
-                                        <input type="text" class="form-control bg-light border-0" id="cat-nome" placeholder="Ex: Combustível..." required>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <label class="form-label text-muted small">Tipo</label>
-                                        <select class="form-select bg-light border-0" id="cat-tipo">
-                                            <option value="despesa">Despesa</option>
-                                            <option value="receita">Receita</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button type="submit" class="btn btn-primary w-100">Adicionar</button>
-                                    </div>
-                                </form>
-
-                                <div class="row g-4">
-                                    <div class="col-md-6">
-                                        <h6 class="text-danger fw-bold border-bottom pb-2 mb-3">Despesas</h6>
-                                        <div id="lista-categorias-despesa" class="d-flex flex-column gap-2"></div>
-                                    </div>
-                                    <div class="col-md-6">
-                                        <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Receitas</h6>
-                                        <div id="lista-categorias-receita" class="d-flex flex-column gap-2"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="col-lg-5">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-header bg-transparent border-bottom pt-4 pb-3">
-                                <h5 class="fw-bold text-dark mb-0"><i class='bx bx-credit-card text-primary'></i> Cartões de Crédito</h5>
-                            </div>
-                            <div class="card-body p-4">
-                                <form id="novo-cartao-form" class="d-flex gap-2 mb-4 border-bottom pb-4">
-                                    <input type="text" class="form-control bg-light border-0" id="cartao-nome" placeholder="Ex: Nubank, Inter..." required>
-                                    <button type="submit" class="btn btn-primary text-nowrap">Salvar</button>
-                                </form>
-                                <div id="lista-cartoes-cadastrados" class="d-flex flex-column gap-2"></div>
+                        <div class="col-lg-5">
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-credit-card text-primary'></i> Cartões de Crédito</h5>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form id="novo-cartao-form" class="d-flex gap-2 mb-4 border-bottom pb-4">
+                                        <input type="text" class="form-control bg-light border-0" id="cartao-nome" placeholder="Ex: Nubank..." required>
+                                        <button type="submit" class="btn btn-primary text-nowrap">Salvar</button>
+                                    </form>
+                                    <div id="lista-cartoes-cadastrados" class="d-flex flex-column gap-2"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
+            </div>
         </main>
     </div>
 
-    <div id="modal-edicao" class="modal-overlay hidden" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center;">
+    <div id="modal-edicao" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center;">
         <div class="card border-0 shadow-lg rounded-4 w-100 mx-3" style="max-width: 450px;">
             <div class="card-header bg-white border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center rounded-top-4">
                 <h5 class="fw-bold mb-0 text-dark">Editar Parcela</h5>
@@ -439,7 +423,7 @@
                         <select class="form-select bg-light border-0" id="edit-categoria" required></select>
                     </div>
                     <div class="row g-2 mb-3">
-                        <div class="col-6">
+                        <div class="col-6 form-group">
                             <label class="form-label small text-muted">Valor (R$)</label>
                             <input type="number" class="form-control bg-light border-0" id="edit-valor" step="0.01" required>
                         </div>
@@ -464,7 +448,7 @@
         </div>
     </div>
 
-    <div id="modal-confirmacao" class="modal-overlay hidden" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; align-items:center; justify-content:center;">
+    <div id="modal-confirmacao" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3000; display:flex; align-items:center; justify-content:center;">
         <div class="card border-0 shadow-lg rounded-4 w-100 mx-3 text-center p-4" style="max-width: 350px;">
             <div class="text-warning mb-3" style="font-size: 4rem; line-height:1;"><i class='bx bx-error-circle'></i></div>
             <h4 class="fw-bold text-dark">Confirmação</h4>
@@ -477,19 +461,5 @@
     </div>
 
     <script src="/static/script.js"></script>
-    <script>
-        // Intercepta a função navegarPara original para atualizar o título da página superior dinamicamente
-        document.addEventListener('DOMContentLoaded', () => {
-            const tabsLinks = document.querySelectorAll('.nav-item');
-            tabsLinks.forEach(link => {
-                link.addEventListener('click', function() {
-                    tabsLinks.forEach(t => t.classList.remove('active', 'text-primary'));
-                    this.classList.add('active', 'text-primary');
-                    const text = this.querySelector('span').textContent;
-                    document.querySelector('.page-title').textContent = text;
-                });
-            });
-        });
-    </script>
 </body>
 </html>

@@ -13,7 +13,7 @@ let todosCartoes = [];
 // Variáveis dos Gráficos
 let chartDespesas = null;
 let chartReceitas = null;
-let chartCartaoEspecifico = null; // NOVO
+let chartCartaoEspecifico = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     initDates();
@@ -45,7 +45,9 @@ function setupEventListeners() {
     document.getElementById('novo-cartao-form').addEventListener('submit', handleNovoCartao); 
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     
-
+    // Atualiza a tabela dinamicamente quando o valor total muda
+    document.getElementById('transacao-valor').addEventListener('input', gerarCamposData);
+    
     const formNovaTransacao = document.getElementById('nova-transacao-form');
     const campos = formNovaTransacao.querySelectorAll('input, select');
 
@@ -53,7 +55,6 @@ function setupEventListeners() {
         campo.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault(); 
-                
                 const proximoCampo = campos[index + 1];
                 if (proximoCampo) {
                     proximoCampo.focus();
@@ -65,16 +66,29 @@ function setupEventListeners() {
 
 // --- NAVEGAÇÃO ---
 function navegarPara(tela) {
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-    
-    const items = document.querySelectorAll('.nav-item');
-    if(tela === 'dashboard') items[0].classList.add('active');
-    if(tela === 'extrato') items[1].classList.add('active');
-    if(tela === 'novo') items[2].classList.add('active');
-    if(tela === 'categorias') items[3].classList.add('active'); 
+    document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
+    const activeLink = document.querySelector(`[onclick="navegarPara('${tela}')"]`);
+    if (activeLink) activeLink.classList.add('active');
 
-    document.querySelectorAll('.view-section').forEach(view => view.classList.remove('active'));
-    document.getElementById(`view-${tela}`).classList.add('active');
+    // Esconde todas as telas e mostra só a correta
+    document.querySelectorAll('.view-section').forEach(view => {
+        view.classList.add('d-none');
+        view.classList.remove('active');
+    });
+    
+    const targetView = document.getElementById(`view-${tela}`);
+    targetView.classList.remove('d-none');
+    targetView.classList.add('active');
+
+    // Atualiza o título da página
+    const titulos = {
+        'dashboard': 'Visão Geral',
+        'extrato': 'Extrato Mensal',
+        'novo': 'Nova Transação',
+        'categorias': 'Cadastros'
+    };
+    const titleElement = document.querySelector('.page-title');
+    if(titleElement) titleElement.textContent = titulos[tela] || 'SmartGrana';
 
     if(tela === 'dashboard') loadDashboard();
     if(tela === 'extrato') loadParcelas();
@@ -88,41 +102,41 @@ function navegarPara(tela) {
 // --- AUTH ---
 function toggleAuth(type) {
     if(type === 'login') {
-        document.getElementById('login-tab').classList.remove('hidden');
-        document.getElementById('register-tab').classList.add('hidden');
-        document.getElementById('tab-login-btn').style.borderBottom = '3px solid var(--primary)';
-        document.getElementById('tab-login-btn').style.color = 'var(--primary)';
-        document.getElementById('tab-register-btn').style.borderBottom = 'none';
-        document.getElementById('tab-register-btn').style.color = '#666';
+        document.getElementById('login-tab').classList.remove('d-none');
+        document.getElementById('register-tab').classList.add('d-none');
+        document.getElementById('tab-login-btn').classList.add('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        document.getElementById('tab-login-btn').classList.remove('text-muted');
+        document.getElementById('tab-register-btn').classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        document.getElementById('tab-register-btn').classList.add('text-muted');
     } else {
-        document.getElementById('login-tab').classList.add('hidden');
-        document.getElementById('register-tab').classList.remove('hidden');
-        document.getElementById('tab-register-btn').style.borderBottom = '3px solid var(--secondary)';
-        document.getElementById('tab-register-btn').style.color = 'var(--secondary)';
-        document.getElementById('tab-login-btn').style.borderBottom = 'none';
-        document.getElementById('tab-login-btn').style.color = '#666';
+        document.getElementById('login-tab').classList.add('d-none');
+        document.getElementById('register-tab').classList.remove('d-none');
+        document.getElementById('tab-register-btn').classList.add('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        document.getElementById('tab-register-btn').classList.remove('text-muted');
+        document.getElementById('tab-login-btn').classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        document.getElementById('tab-login-btn').classList.add('text-muted');
     }
 }
 
 async function checkAuthStatus() {
     const userStored = localStorage.getItem('currentUser');
     if (!userStored) {
-        document.getElementById('auth-section').classList.remove('hidden');
-        document.getElementById('app-nav').classList.add('hidden');
+        document.getElementById('auth-section').classList.remove('d-none-important');
+        document.getElementById('app-nav').classList.add('d-none-important');
         return;
     }
     try {
         currentUser = JSON.parse(userStored);
         showApp();
     } catch {
-        document.getElementById('auth-section').classList.remove('hidden');
+        document.getElementById('auth-section').classList.remove('d-none-important');
     }
 }
 
 function showApp() {
-    document.getElementById('auth-section').classList.add('hidden');
-    document.getElementById('app-nav').classList.remove('hidden');
-    document.getElementById('logout-btn').classList.remove('hidden');
+    document.getElementById('auth-section').classList.add('d-none-important');
+    document.getElementById('app-nav').classList.remove('d-none-important');
+    document.getElementById('logout-btn').classList.remove('d-none-important');
     document.getElementById('username-display').textContent = currentUser.username;
     navegarPara('dashboard');
     loadCategorias();
@@ -166,26 +180,22 @@ async function loadDashboard() {
         if (res.ok) {
             const data = await res.json();
             
-            // Cards Superiores
             const elReceitas = document.getElementById('dash-total-receitas');
             if(elReceitas) elReceitas.textContent = `R$ ${data.total_receitas.toFixed(2)}`;
 
             const elDespesas = document.getElementById('dash-total-despesas');
             if(elDespesas) elDespesas.textContent = `R$ ${data.total_despesas.toFixed(2)}`;
 
-            // Gráficos
             renderizarGrafico('chart-despesas', 'despesa', data.grafico_despesas);
             renderizarGrafico('chart-receitas', 'receita', data.grafico_receitas);
 
-            // Cálculo e Exibição do Balanço
             const saldo = data.total_receitas - data.total_despesas;
             const elBalanco = document.getElementById('dash-balanco');
             if(elBalanco) {
                 elBalanco.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saldo);
-                elBalanco.className = 'balance-value ' + (saldo >= 0 ? 'balance-positive' : 'balance-negative');
+                elBalanco.className = 'fw-bold mb-0 mt-1 ' + (saldo >= 0 ? 'text-success' : 'text-danger');
             }
 
-            // --- NOVO: Lógica do Card de Cartão ---
             const selectCartao = document.getElementById('dash-card-select');
             if (selectCartao && selectCartao.options.length <= 1) {
                 await preencherSelectCartoesDashboard();
@@ -205,17 +215,9 @@ function renderizarGrafico(canvasId, tipo, dados) {
     const valores = dados.map(item => item.total);
     
     const coresBase = [
-        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59', 
-        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c039',
-        '#1abc9c', '#2ecc71', '#3498db', '#9b59b6', '#34495e',
-        '#f1c40f', '#e67e22', '#e74c3c', '#ecf0f1', '#95a5a6',
-        '#f39c12', '#d35400', '#c0392b', '#bdc3c7', '#7f8c8d',
-        '#55efc4', '#81ecec', '#74b9ff', '#a29bfe', '#dfe6e9',
-        '#00b894', '#00cec9', '#0984e3', '#6c5ce7', '#b2bec3',
-        '#ffeaa7', '#fab1a0', '#ff7675', '#fd79a8', '#636e72',
-        '#fdcb6e', '#e17055', '#d63031', '#e84393', '#2d3436',
-        '#6D214F', '#182C61', '#FC427B', '#BDC581', '#82589F',
-        '#58B19F', '#2C3A47', '#B33771', '#3B3B98', '#FD7272'
+        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', 
+        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c0392b',
+        '#1abc9c', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50'
     ];
     
     if (tipo === 'despesa') {
@@ -238,7 +240,7 @@ function renderizarGrafico(canvasId, tipo, dados) {
             responsive: true,
             maintainAspectRatio: false,
             plugins: {
-                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 } } },
+                legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -261,13 +263,12 @@ function renderizarGrafico(canvasId, tipo, dados) {
     }
 }
 
-// --- CATEGORIAS & CARTÕES ---
+// --- CATEGORIAS E CARTÕES ---
 async function loadCategorias(renderizarNaTela = false) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/tipos`);
         if(res.ok) {
             todasCategorias = await res.json();
-            
             const tipoTransacaoAtual = document.getElementById('transacao-tipo').value;
             atualizarSelectCategorias(tipoTransacaoAtual);
 
@@ -289,9 +290,9 @@ async function loadCartoes() {
     } catch(e) { console.error("Erro ao carregar cartões", e); }
 }
 
-// Lógica de Renderização de Cartões
 function renderizarSelectCartoes() {
     const select = document.getElementById('transacao-cartao-id');
+    if(!select) return;
     const firstOption = select.options[0];
     select.innerHTML = ''; 
     select.appendChild(firstOption);
@@ -311,17 +312,15 @@ function renderizarListaCartoesGerenciamento() {
 
     todosCartoes.forEach(c => {
         const item = document.createElement('div');
-        item.className = 'categoria-item';
-        item.style.maxWidth = '400px';
+        item.className = 'p-3 bg-light rounded-3 d-flex justify-content-between align-items-center mb-2';
         item.innerHTML = `
-            <span>💳 ${c.nome}</span>
-            <button class="btn-icon-del" onclick="excluirCartao(${c.id})">&times;</button>
+            <span class="fw-medium text-dark"><i class='bx bx-credit-card text-primary me-2'></i> ${c.nome}</span>
+            <button class="btn btn-sm btn-outline-danger rounded-circle p-1" style="line-height: 1;" onclick="excluirCartao(${c.id})"><i class='bx bx-trash'></i></button>
         `;
         container.appendChild(item);
     });
 }
 
-// Handlers de Cartão
 async function handleNovoCartao(e) {
     e.preventDefault();
     const nome = document.getElementById('cartao-nome').value;
@@ -348,17 +347,16 @@ function excluirCartao(id) {
     });
 }
 
-// Lógica de Visibilidade do Select de Cartão na Transação
 function toggleSelectCartao() {
     const forma = document.getElementById('transacao-forma-pagamento').value;
     const divCartao = document.getElementById('div-select-cartao');
     const inputCartao = document.getElementById('transacao-cartao-id');
 
     if (forma === 'Cartão Crédito') {
-        divCartao.classList.remove('hidden');
+        divCartao.classList.remove('d-none');
         inputCartao.setAttribute('required', 'required');
     } else {
-        divCartao.classList.add('hidden');
+        divCartao.classList.add('d-none');
         inputCartao.removeAttribute('required');
         inputCartao.value = "";
     }
@@ -366,6 +364,7 @@ function toggleSelectCartao() {
 
 function atualizarSelectCategorias(tipoSelecionado) {
     const select = document.getElementById('transacao-tipo-categoria');
+    if(!select) return;
     select.innerHTML = '';
     
     const filtradas = todasCategorias.filter(c => c.categoria === tipoSelecionado);
@@ -388,16 +387,17 @@ function atualizarSelectCategorias(tipoSelecionado) {
 function renderizarListaCategoriasGerenciamento() {
     const containerDespesa = document.getElementById('lista-categorias-despesa');
     const containerReceita = document.getElementById('lista-categorias-receita');
+    if(!containerDespesa || !containerReceita) return;
     
     containerDespesa.innerHTML = '';
     containerReceita.innerHTML = '';
 
     todasCategorias.forEach(cat => {
         const item = document.createElement('div');
-        item.className = 'categoria-item';
+        item.className = 'p-2 px-3 bg-light rounded-3 d-flex justify-content-between align-items-center';
         item.innerHTML = `
-            <span>${cat.nome}</span>
-            <button class="btn-icon-del" onclick="excluirCategoria(${cat.id})">&times;</button>
+            <span class="fw-medium text-dark">${cat.nome}</span>
+            <button class="btn btn-sm btn-outline-danger border-0 rounded-circle p-1" style="line-height: 1;" onclick="excluirCategoria(${cat.id})"><i class='bx bx-x fs-5'></i></button>
         `;
 
         if(cat.categoria === 'despesa') containerDespesa.appendChild(item);
@@ -437,6 +437,7 @@ function excluirCategoria(id) {
 // --- EXTRATO & ROVER ---
 function renderizarRover() {
     const lista = document.getElementById('rover-lista');
+    if(!lista) return;
     lista.innerHTML = '';
     const [ano, mes] = mesAtualExtrato.split('-').map(Number);
     const dataAtual = new Date(ano, mes - 1, 1);
@@ -451,7 +452,7 @@ function renderizarRover() {
         const label = `${nomeMes.charAt(0).toUpperCase() + nomeMes.slice(1)}/${anoIso}`;
 
         const div = document.createElement('div');
-        div.className = `rover-item ${i === 0 ? 'active' : ''}`;
+        div.className = `rover-item ${i === 0 ? 'active' : 'text-muted'}`;
         div.textContent = label;
         div.onclick = () => { 
             if (valorIso !== mesAtualExtrato) {
@@ -491,6 +492,7 @@ async function loadParcelas() {
 function renderizarTabela() {
     const tbody = document.getElementById('parcelas-table-body');
     const tfoot = document.getElementById('parcelas-footer');
+    if(!tbody) return;
     tbody.innerHTML = '';
     tfoot.innerHTML = '';
     document.getElementById('check-all').checked = false;
@@ -499,7 +501,7 @@ function renderizarTabela() {
     const listaFiltrada = parcelasAtuais.filter(p => p.tipo === filtroTipoExtrato);
 
     if (listaFiltrada.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 20px; color: #666;">Nenhuma ${filtroTipoExtrato} encontrada.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma ${filtroTipoExtrato} encontrada neste mês.</td></tr>`;
         return;
     }
 
@@ -516,7 +518,7 @@ function renderizarTabela() {
         let checkboxHtml = '';
 
         if (p.tipo === 'receita') {
-            checkboxHtml = `<span style="color:var(--secondary); font-weight:bold;">●</span>`;
+            checkboxHtml = `<span class="text-success fw-bold">●</span>`;
             badge = 'status-pago';
             p.status = 'Recebido';
         } else {
@@ -525,16 +527,16 @@ function renderizarTabela() {
             else badge = 'status-a_pagar';
 
             checkboxHtml = p.status !== 'pago' 
-                ? `<input type="checkbox" class="parcela-checkbox" value="${p.id}" onchange="atualizarBotaoLote()">` 
-                : `<span style="color:var(--secondary); font-weight:bold;">&#10003;</span>`;
+                ? `<input type="checkbox" class="form-check-input parcela-checkbox" value="${p.id}" onchange="atualizarBotaoLote()">` 
+                : `<span class="text-success fw-bold">&#10003;</span>`;
         }
 
          row.innerHTML = `
             <td class="text-center">${checkboxHtml}</td>
-            <td>${p.descricao}</td>
-            <td>${p.numero}</td> 
-            <td>${p.categoria}</td>  
-            <td>R$ ${parseFloat(p.valor).toFixed(2)}</td>
+            <td class="fw-medium text-dark">${p.descricao}</td>
+            <td class="text-muted">${p.numero}</td> 
+            <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>  
+            <td class="fw-bold">R$ ${parseFloat(p.valor).toFixed(2)}</td>
             <td>${dataDisplay}</td> 
             <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
             <td class="text-end pe-4">
@@ -547,21 +549,189 @@ function renderizarTabela() {
         tbody.appendChild(row);
     });
 
-    const corTotal = filtroTipoExtrato === 'receita' ? '#2ecc71' : '#e74c3c';
+    const corTotal = filtroTipoExtrato === 'receita' ? 'text-success' : 'text-danger';
     tfoot.innerHTML = `
-        <tr style="background-color: #f8f9fa; font-weight: bold;">
-            <td colspan="4" style="text-align: right;">Total ${filtroTipoExtrato === 'receita' ? 'Receitas' : 'Despesas'}:</td>
-            <td colspan="4" style="color: ${corTotal}; font-size: 1.1rem;">R$ ${totalFiltrado.toFixed(2)}</td>
+        <tr>
+            <td colspan="4" class="text-end fw-bold text-dark">Total ${filtroTipoExtrato === 'receita' ? 'Receitas' : 'Despesas'}:</td>
+            <td colspan="4" class="fw-bold fs-6 ${corTotal}">R$ ${totalFiltrado.toFixed(2)}</td>
         </tr>
     `;
 }
 
-// --- TRANSAÇÕES (Atualizado) ---
+// ==========================================
+// LÓGICA DE CÁLCULO E TABELA DE PARCELAS (NOVO)
+// ==========================================
+function gerarCamposData() {
+    const inputQtd = document.getElementById('transacao-parcelas');
+    if(!inputQtd) return;
+    let qtd = parseInt(inputQtd.value);
+    if (isNaN(qtd) || qtd < 1) qtd = 1;
+
+    const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
+    const container = document.getElementById('container-datas');
+    container.innerHTML = ''; 
+
+    // Calcula o valor base por parcela
+    let valorBase = valorTotal / qtd;
+    let somaArr = [];
+    let totalDistribuido = 0;
+    
+    for(let i = 0; i < qtd; i++) {
+        let v = Number(valorBase.toFixed(2));
+        if(i === qtd - 1) { // A última parcela tira a diferença de centavos
+            v = Number((valorTotal - totalDistribuido).toFixed(2));
+        }
+        totalDistribuido += v;
+        somaArr.push(v);
+    }
+
+    const hoje = new Date();
+    for (let i = 0; i < qtd; i++) {
+        const dataSugerida = new Date(hoje.getFullYear(), hoje.getMonth() + i, hoje.getDate());
+        const dataStr = dataSugerida.toISOString().split('T')[0];
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="text-center fw-bold text-muted bg-light border-end" style="vertical-align: middle;">${i + 1}</td>
+            <td>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0 text-muted">R$</span>
+                    <input type="number" class="form-control form-control-sm border-start-0 ps-0 input-valor-parcela fw-bold text-dark" value="${somaArr[i].toFixed(2)}" step="0.01" min="0" required onchange="recalcularValoresAbaixo(${i})" oninput="calcularSomaParcelas()">
+                </div>
+            </td>
+            <td>
+                <input type="date" class="form-control form-control-sm input-data-parcela text-dark" value="${dataStr}" required>
+            </td>
+            <td class="text-center" style="vertical-align: middle;">
+                <div class="btn-group btn-group-sm shadow-sm" role="group">
+                    <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaLinha(${i}, 'M')" title="Avançar 1 Mês p/ Baixo"> M</button>
+                    <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaLinha(${i}, 'A')" title="Avançar 1 Ano p/ Baixo"> A</button>
+                    <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaLinha(${i}, '=')" title="Copiar p/ Baixo"> = </button>
+                </div>
+            </td>
+        `;
+        container.appendChild(tr);
+    }
+    calcularSomaParcelas();
+}
+
+function recalcularValoresAbaixo(indexAlterado) {
+    const inputs = document.querySelectorAll('.input-valor-parcela');
+    const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
+    
+    // Soma tudo que está "acima" e a própria parcela alterada (essas são fixas agora)
+    let somaFixada = 0;
+    for(let i = 0; i <= indexAlterado; i++) {
+        somaFixada += parseFloat(inputs[i].value) || 0;
+    }
+    
+    const restante = valorTotal - somaFixada;
+    const parcelasRestantes = inputs.length - 1 - indexAlterado;
+    
+    // Se ainda existem parcelas para baixo, divide o resto entre elas
+    if (parcelasRestantes > 0) {
+        let valorBase = Math.max(0, restante / parcelasRestantes);
+        let totalDistribuido = 0;
+        
+        for(let i = indexAlterado + 1; i < inputs.length; i++) {
+            let v = Number(valorBase.toFixed(2));
+            
+            // Se for a última parcela, absorve o erro dos centavos
+            if (i === inputs.length - 1 && restante > 0) {
+                v = Number((restante - totalDistribuido).toFixed(2));
+            } else if (restante <= 0) {
+                v = 0; // Se o cara já ultrapassou o total, as de baixo viram zero
+            }
+            
+            totalDistribuido += v;
+            inputs[i].value = v.toFixed(2);
+        }
+    }
+    
+    calcularSomaParcelas();
+}
+
+function calcularSomaParcelas() {
+    const elValorTotal = document.getElementById('transacao-valor');
+    if(!elValorTotal) return;
+    
+    const valorTotal = parseFloat(elValorTotal.value) || 0;
+    const inputsValores = document.querySelectorAll('.input-valor-parcela');
+    let soma = 0;
+    
+    inputsValores.forEach(input => { soma += parseFloat(input.value) || 0; });
+    
+    const diferenca = valorTotal - soma;
+    const elSoma = document.getElementById('soma-parcelas');
+    const elDif = document.getElementById('diferenca-parcelas');
+    
+    if (elSoma && elDif) {
+        elSoma.textContent = 'R$ ' + soma.toFixed(2);
+        elDif.textContent = 'R$ ' + Math.abs(diferenca).toFixed(2);
+        
+        if (Math.abs(diferenca) > 0.01) { 
+            elDif.className = 'text-danger fw-bold';
+            elSoma.className = 'text-danger fw-bold';
+        } else {
+            elDif.className = 'text-success fw-bold';
+            elSoma.className = 'text-primary fw-bold';
+        }
+    }
+}
+
+// Botões individuais por linha
+function aplicarRecorrenciaLinha(indexBase, tipo) {
+    const inputs = document.querySelectorAll('.input-data-parcela');
+    if (inputs.length === 0) return;
+    
+    const dataBaseVal = inputs[indexBase].value;
+    if (!dataBaseVal) {
+        showNotification('Preencha a data antes de aplicar a recorrência.', 'error');
+        return;
+    }
+
+    const [anoBase, mesBase, diaBase] = dataBaseVal.split('-').map(Number);
+
+    // Aplica as datas a partir da linha ESCOLHIDA para baixo
+    for(let i = indexBase + 1; i < inputs.length; i++) {
+        if (tipo === '=') {
+            inputs[i].value = dataBaseVal;
+        } else {
+            let novaData = new Date(anoBase, mesBase - 1, diaBase);
+            let delta = i - indexBase; // Distância entre a linha atual e a base
+            
+            if (tipo === 'M') novaData.setMonth(novaData.getMonth() + delta);
+            if (tipo === 'A') novaData.setFullYear(novaData.getFullYear() + delta);
+
+            // Ajuste automático caso caia dia 31 num mês de 30
+            if (novaData.getDate() !== diaBase) novaData.setDate(0); 
+            
+            const anoIso = novaData.getFullYear();
+            const mesIso = String(novaData.getMonth() + 1).padStart(2, '0');
+            const diaIso = String(novaData.getDate()).padStart(2, '0');
+            
+            inputs[i].value = `${anoIso}-${mesIso}-${diaIso}`;
+        }
+    }
+}
+
 async function handleNovaTransacao(e) {
     e.preventDefault();
-    const inputs = document.querySelectorAll('.input-data-parcela');
-    const listaDatas = Array.from(inputs).map(input => input.value);
     
+    const inputsData = document.querySelectorAll('.input-data-parcela');
+    const listaDatas = Array.from(inputsData).map(input => input.value);
+    
+    const inputsValor = document.querySelectorAll('.input-valor-parcela');
+    const listaValores = Array.from(inputsValor).map(input => parseFloat(input.value) || 0);
+
+    const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
+    const somaValores = listaValores.reduce((a, b) => a + b, 0);
+    
+    if (Math.abs(valorTotal - somaValores) > 0.01) {
+        showNotification('Corrija as parcelas: A soma dos valores deve ser igual ao Valor Total.', 'error');
+        return;
+    }
+
     const catId = document.getElementById('transacao-tipo-categoria').value;
     const formaPagamento = document.getElementById('transacao-forma-pagamento').value;
     const idCartao = document.getElementById('transacao-cartao-id').value;
@@ -578,11 +748,12 @@ async function handleNovaTransacao(e) {
 
     const body = {
         descricao: document.getElementById('transacao-descricao').value,
-        valor: parseFloat(document.getElementById('transacao-valor').value),
+        valor: valorTotal,
         parcelas: parseInt(document.getElementById('transacao-parcelas').value),
         tipo: document.getElementById('transacao-tipo').value,
         id_tipo_categoria: parseInt(catId),
         datas_parcelas: listaDatas,
+        valores_parcelas: listaValores, 
         forma_pagamento: formaPagamento,
         id_cartao: idCartao ? parseInt(idCartao) : null
     };
@@ -607,10 +778,10 @@ function atualizarBotaoLote() {
     const count = document.querySelectorAll('.parcela-checkbox:checked').length;
     const btn = document.getElementById('btn-baixar-lote');
     if (count > 0) {
-        btn.classList.remove('hidden');
-        btn.textContent = `Confirmar Baixa (${count})`;
+        btn.classList.remove('d-none');
+        btn.innerHTML = `<i class='bx bx-check-double'></i> Confirmar Baixa (${count})`;
     } else {
-        btn.classList.add('hidden');
+        btn.classList.add('d-none');
     }
 }
 
@@ -629,7 +800,7 @@ function baixarSelecionados() {
     });
 }
 
-// --- MODAL EDIÇÃO ---
+// --- MODAIS (Edição e Exclusão) ---
 function abrirModal(index) {
     const p = parcelasAtuais[index];
     
@@ -643,10 +814,10 @@ function abrirModal(index) {
     const labelVencimento = document.getElementById('edit-vencimento').closest('.form-group').querySelector('label');
 
     if (p.tipo === 'receita') {
-        divStatus.classList.add('hidden');           
+        divStatus.classList.add('d-none');           
         labelVencimento.textContent = 'Data de Recebimento'; 
     } else {
-        divStatus.classList.remove('hidden');        
+        divStatus.classList.remove('d-none');        
         selectStatus.value = p.status;               
         labelVencimento.textContent = 'Vencimento';  
     }
@@ -670,11 +841,11 @@ function abrirModal(index) {
         });
     }
 
-    document.getElementById('modal-edicao').classList.remove('hidden');
+    document.getElementById('modal-edicao').classList.remove('d-none');
 }
 
 function fecharModal() {
-    document.getElementById('modal-edicao').classList.add('hidden');
+    document.getElementById('modal-edicao').classList.add('d-none');
 }
 
 async function salvarEdicao(e) {
@@ -720,18 +891,22 @@ function confirmarExclusao() {
     });
 }
 
-function gerarCamposData() {
-    const qtd = parseInt(document.getElementById('transacao-parcelas').value) || 1;
-    const container = document.getElementById('container-datas');
-    container.innerHTML = ''; 
-    const hoje = new Date();
-    for (let i = 0; i < qtd; i++) {
-        const dataSugerida = new Date(hoje.getFullYear(), hoje.getMonth() + i, hoje.getDate());
-        const dataStr = dataSugerida.toISOString().split('T')[0];
-        const div = document.createElement('div');
-        div.innerHTML = `<label style="font-size:0.75rem; color:#666">Parcela ${i + 1}</label><input type="date" class="input-data-parcela" value="${dataStr}" required>`;
-        container.appendChild(div);
-    }
+function excluirDireto(id) {
+    abrirConfirmacao("Tem certeza que deseja excluir esta parcela permanentemente?", async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/excluir_parcela/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.mensagem, 'success');
+                loadParcelas();
+                loadDashboard();
+            } else {
+                showNotification(data.erro, 'error');
+            }
+        } catch(e) { 
+            showNotification('Erro ao excluir', 'error'); 
+        }
+    });
 }
 
 async function doPost(url, body, callback) {
@@ -756,8 +931,6 @@ function showNotification(msg, type='success') {
     setTimeout(() => div.remove(), 4000);
 }
 
-let acaoConfirmacaoAtual = null;
-
 function abrirConfirmacao(mensagem, callback) {
     const modal = document.getElementById('modal-confirmacao');
     const txt = document.getElementById('msg-confirmacao');
@@ -770,79 +943,22 @@ function abrirConfirmacao(mensagem, callback) {
         fecharModalConfirmacao();
     };
 
-    modal.classList.remove('hidden');
+    modal.classList.remove('d-none');
 }
 
 function fecharModalConfirmacao() {
-    document.getElementById('modal-confirmacao').classList.add('hidden');
+    document.getElementById('modal-confirmacao').classList.add('d-none');
 }
 
-
-document.getElementById('transacao-tipo').addEventListener('change', function() {
-    const containerHeader = document.querySelector('#container-datas').previousElementSibling;
-    const label = containerHeader.querySelector('label');
-    
-    if(this.value === 'receita') {
-        if(label) label.textContent = 'Datas de Recebimento:';
-    } else {
-        if(label) label.textContent = 'Datas de Vencimento:';
-    }
-    
-    atualizarSelectCategorias(this.value);
-});
-
-function aplicarRecorrencia(tipo) {
-    const inputs = document.querySelectorAll('.input-data-parcela');
-    if (inputs.length === 0) return;
-
-    const primeiraDataVal = inputs[0].value;
-    if (!primeiraDataVal) {
-        showNotification('Preencha a data da primeira parcela antes de usar os atalhos.', 'error');
-        inputs[0].focus();
-        return;
-    }
-
-    const [anoBase, mesBase, diaBase] = primeiraDataVal.split('-').map(Number);
-
-    inputs.forEach((input, index) => {
-        if (index === 0) return; 
-
-        if (tipo === '=') {
-            input.value = primeiraDataVal;
-        } else {
-            let novaData = new Date(anoBase, mesBase - 1, diaBase);
-            let mesesParaAdicionar = 0;
-
-            if (tipo === 'M') mesesParaAdicionar = index;      
-            if (tipo === 'T') mesesParaAdicionar = index * 3;  
-            if (tipo === 'S') mesesParaAdicionar = index * 6;  
-            if (tipo === 'A') mesesParaAdicionar = index * 12; 
-
-            novaData.setMonth(novaData.getMonth() + mesesParaAdicionar);
-
-            if (novaData.getDate() !== diaBase) {
-                novaData.setDate(0); 
-            }
-            const anoIso = novaData.getFullYear();
-            const mesIso = String(novaData.getMonth() + 1).padStart(2, '0');
-            const diaIso = String(novaData.getDate()).padStart(2, '0');
-            
-            input.value = `${anoIso}-${mesIso}-${diaIso}`;
-        }
-    });
-}
-
-
-// --- NOVAS FUNÇÕES PARA O GRÁFICO DE CARTÃO ---
-
+// --- GRÁFICOS DO DASHBOARD (CARTÕES) ---
 async function preencherSelectCartoesDashboard() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/cartoes`);
         if (res.ok) {
             const cartoes = await res.json();
             const select = document.getElementById('dash-card-select');
+            if(!select) return;
             
-            // Limpa mantendo o placeholder
             select.innerHTML = '<option value="" disabled selected>Selecione um cartão...</option>';
             
             cartoes.forEach(c => {
@@ -852,7 +968,6 @@ async function preencherSelectCartoesDashboard() {
                 select.appendChild(option);
             });
 
-            // Se houver cartões, seleciona o primeiro automaticamente e carrega o gráfico
             if (cartoes.length > 0) {
                 select.value = cartoes[0].id;
                 atualizarGraficoCartao();
@@ -884,18 +999,15 @@ function renderizarGraficoCartao(dados) {
     const labels = dados.map(item => item.categoria);
     const valores = dados.map(item => item.total);
 
-    // Cores (Reutilizando seu array de cores existente ou definindo um novo)
     const cores = [
         '#6c5ce7', '#0984e3', '#00cec9', '#00b894', '#fdcb6e', 
         '#e17055', '#d63031', '#e84393', '#2d3436', '#636e72'
     ];
 
-    if (chartCartaoEspecifico) {
-        chartCartaoEspecifico.destroy();
-    }
+    if (chartCartaoEspecifico) chartCartaoEspecifico.destroy();
 
     chartCartaoEspecifico = new Chart(ctx, {
-        type: 'doughnut', // Usei doughnut para diferenciar um pouco, pode ser 'pie'
+        type: 'doughnut',
         data: {
             labels: labels,
             datasets: [{
@@ -922,24 +1034,6 @@ function renderizarGraficoCartao(dados) {
                     }
                 }
             }
-        }
-    });
-}
-
-function excluirDireto(id) {
-    abrirConfirmacao("Tem certeza que deseja excluir esta parcela permanentemente?", async () => {
-        try {
-            const res = await fetch(`${API_BASE_URL}/excluir_parcela/${id}`, { method: 'DELETE' });
-            const data = await res.json();
-            if (res.ok) {
-                showNotification(data.mensagem, 'success');
-                loadParcelas();
-                loadDashboard();
-            } else {
-                showNotification(data.erro, 'error');
-            }
-        } catch(e) { 
-            showNotification('Erro ao excluir', 'error'); 
         }
     });
 }
