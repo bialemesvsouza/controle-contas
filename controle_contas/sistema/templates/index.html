@@ -261,14 +261,14 @@
                 </div>
 
                 <div id="view-novo" class="view-section d-none">
-                    <div class="row justify-content-center">
-                        <div class="col-lg-8">
-                            <div class="card border-0 shadow-sm rounded-4">
-                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
-                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-plus-circle text-primary'></i> Cadastrar Transação</h5>
-                                </div>
-                                <div class="card-body p-4">
-                                    <form id="nova-transacao-form">
+                    <form id="nova-transacao-form">
+                        <div class="row g-4">
+                            <div class="col-lg-5">
+                                <div class="card border-0 shadow-sm rounded-4 h-100">
+                                    <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                        <h5 class="fw-bold text-dark mb-0"><i class='bx bx-plus-circle text-primary'></i> Cadastrar Transação</h5>
+                                    </div>
+                                    <div class="card-body p-4">
                                         <div class="mb-3">
                                             <label class="form-label fw-medium text-muted small">Descrição</label>
                                             <input type="text" class="form-control bg-light border-0" id="transacao-descricao" required placeholder="Ex: Compra Mercado">
@@ -299,7 +299,7 @@
                                                 <option value="" disabled selected>Escolha um cartão...</option>
                                             </select>
                                         </div>
-                                        <div class="row g-3 mb-3">
+                                        <div class="row g-3 mb-4">
                                             <div class="col-md-6">
                                                 <label class="form-label fw-medium text-muted small">Tipo</label>
                                                 <select class="form-select bg-light border-0" id="transacao-tipo" required>
@@ -314,37 +314,42 @@
                                                 </select>
                                             </div>
                                         </div>
+                                        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm">Salvar Transação</button>
+                                    </div>
+                                </div>
+                            </div>
 
-                                        <div class="mb-4">
-                                            <div class="d-flex flex-wrap justify-content-between align-items-end mb-2 border-bottom pb-2">
-                                                <label class="form-label fw-bold text-dark mb-0"><i class='bx bx-list-ol text-primary'></i> Detalhamento das Parcelas</label>
-                                                <div class="text-end">
-                                                    <span class="text-muted small fw-medium">Soma: <span id="soma-parcelas" class="text-primary fw-bold">R$ 0,00</span></span>
-                                                    <span class="text-muted small fw-medium ms-3">Diferença: <span id="diferenca-parcelas" class="text-success fw-bold">R$ 0,00</span></span>
-                                                </div>
-                                            </div>
-                                            <div class="table-responsive border rounded-3 bg-white shadow-sm">
-                                                <table class="table table-sm align-middle mb-0">
-                                                    <thead class="table-light text-muted small text-uppercase">
-                                                        <tr>
-                                                            <th class="text-center" style="width: 50px;">#</th>
-                                                            <th>Valor (R$)</th>
-                                                            <th>Vencimento</th>
-                                                            <th class="text-center" style="width: 140px;" title="Copiar para as parcelas de baixo"></th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody id="container-datas">
-                                                        </tbody>
-                                                </table>
+                            <div class="col-lg-7">
+                                <div class="card border-0 shadow-sm rounded-4 h-100">
+                                    <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                        <div class="d-flex flex-wrap justify-content-between align-items-center">
+                                            <h5 class="fw-bold text-dark mb-0"><i class='bx bx-list-ol text-primary'></i> Detalhamento das Parcelas</h5>
+                                            <div class="text-end mt-2 mt-sm-0">
+                                                <span class="text-muted small fw-medium">Soma: <span id="soma-parcelas" class="text-primary fw-bold">R$ 0,00</span></span>
+                                                <span class="text-muted small fw-medium ms-3">Diferença: <span id="diferenca-parcelas" class="text-success fw-bold">R$ 0,00</span></span>
                                             </div>
                                         </div>
-
-                                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">Salvar Transação</button>
-                                    </form>
+                                    </div>
+                                    <div class="card-body p-4">
+                                        <div class="table-responsive border rounded-3 bg-white shadow-sm">
+                                            <table class="table table-sm align-middle mb-0">
+                                                <thead class="table-light text-muted small text-uppercase">
+                                                    <tr>
+                                                        <th class="text-center" style="width: 50px;">#</th>
+                                                        <th>Valor (R$)</th>
+                                                        <th>Vencimento</th>
+                                                        <th class="text-center" style="width: 140px;">Recorrência</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="container-datas">
+                                                    </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </form>
                 </div>
 
                 <div id="view-categorias" class="view-section d-none">
