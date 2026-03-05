@@ -530,14 +530,18 @@ function renderizarTabela() {
         }
 
          row.innerHTML = `
-            <td style="text-align: center;">${checkboxHtml}</td>
+            <td class="text-center">${checkboxHtml}</td>
             <td>${p.descricao}</td>
             <td>${p.numero}</td> 
             <td>${p.categoria}</td>  
             <td>R$ ${parseFloat(p.valor).toFixed(2)}</td>
-            <td>${dataDisplay}</td> <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
-            <td>
-                <button class="btn btn-primary btn-sm" onclick="abrirModal(${indexOriginal})">Editar</button>
+            <td>${dataDisplay}</td> 
+            <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
+            <td class="text-end pe-4">
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-primary btn-sm px-3" onclick="abrirModal(${indexOriginal})"><i class='bx bx-edit'></i> Editar</button>
+                    <button class="btn btn-danger btn-sm px-3" onclick="excluirDireto(${p.id})"><i class='bx bx-trash'></i> Excluir</button>
+                </div>
             </td>
         `;
         tbody.appendChild(row);
@@ -918,6 +922,24 @@ function renderizarGraficoCartao(dados) {
                     }
                 }
             }
+        }
+    });
+}
+
+function excluirDireto(id) {
+    abrirConfirmacao("Tem certeza que deseja excluir esta parcela permanentemente?", async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/excluir_parcela/${id}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.mensagem, 'success');
+                loadParcelas();
+                loadDashboard();
+            } else {
+                showNotification(data.erro, 'error');
+            }
+        } catch(e) { 
+            showNotification('Erro ao excluir', 'error'); 
         }
     });
 }
