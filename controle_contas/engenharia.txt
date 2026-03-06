@@ -165,3 +165,23 @@ CREATE TABLE banco (
 3. Baixa individual ou em lote atualiza `parcela`
 
 Quer que eu detalhe mais alguma parte específica?
+
+
+
+Como alterar senha (só pelo terminal Bash):
+
+from app import app, db
+from app import Usuario
+from werkzeug.security import generate_password_hash
+
+with app.app_context():
+    # 1. Encontra o utilizador na base de dados
+    user = Usuario.query.filter_by(username='nome_do_tester').first()
+    
+    # 2. Gera uma nova senha encriptada e guarda
+    user.password_hash = generate_password_hash('nova_senha_123')
+    db.session.commit()
+    
+    print("Senha alterada com sucesso!")
+
+exit()

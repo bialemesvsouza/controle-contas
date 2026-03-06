@@ -2,9 +2,9 @@ from flask import Flask, jsonify, request, render_template
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
-from dateutil.relativedelta import relativedelta 
+from dateutil.relativedelta import relativedelta
 from werkzeug.security import generate_password_hash, check_password_hash
-from sqlalchemy import func 
+from sqlalchemy import func
 
 # --- CONFIGURAÇÃO ---
 app = Flask(__name__)
@@ -22,7 +22,8 @@ login_manager.login_view = 'login'
 class Usuario(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(120), unique=True)
+    password = db.Column(db.String(200), nullable=False)
 
 class CartaoCredito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -44,7 +45,7 @@ class Transacao(db.Model):
     qtd_parcelas = db.Column(db.Integer)
     data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     tipo_transacao = db.Column(db.String(20))
-    forma_pagamento = db.Column(db.String(50)) 
+    forma_pagamento = db.Column(db.String(50))
     id_cartao = db.Column(db.Integer, db.ForeignKey('cartao_credito.id'), nullable=True)
 
     parcelas = db.relationship('Parcela', backref='transacao', lazy=True, cascade="all, delete-orphan")
@@ -58,7 +59,7 @@ class Parcela(db.Model):
     numero_parcela = db.Column(db.Integer)
     valor = db.Column(db.Float)
     vencimento = db.Column(db.Date)
-    status = db.Column(db.String(20), default='a_pagar') 
+    status = db.Column(db.String(20), default='a_pagar')
     data_pagamento = db.Column(db.Date, nullable=True)
 
 @login_manager.user_loader
@@ -74,13 +75,13 @@ def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
 
     for i, data_str in enumerate(lista_datas):
         data_venc = datetime.strptime(data_str, '%Y-%m-%d').date()
-        
+
         # Se a UI enviou a lista de valores customizados, usamos eles
         if lista_valores and len(lista_valores) > i:
             valor_parc = float(lista_valores[i])
         else:
             valor_parc = transacao_obj.valor_total / transacao_obj.qtd_parcelas
-        
+
         nova_parcela = Parcela(
             id_transacao=transacao_obj.id,
             id_usuario=transacao_obj.id_usuario,
@@ -102,25 +103,26 @@ def home():
 @app.route('/register', methods=['POST'])
 def register():
     dados = request.json
-    if Usuario.query.filter_by(username=dados['username']).first():
-        return jsonify({"erro": "Usuário já existe"}), 400
+    if Usuario.query.filter_by(email=dados['email']).first():
+        return jsonify({"erro": "E-mail já cadastrado"}), 400
 
-    novo_user = Usuario(username=dados['username'], password_hash=generate_password_hash(dados['password']))
+    novo_user = Usuario(
+        username=dados['username'],
+        email=dados['email'],
+        password=dados['password']
+    )
     db.session.add(novo_user)
-    db.session.commit() 
-    
+    db.session.commit()
+
     padroes = [
-        ('Salário', 'receita'),
-        ('Alimentação', 'despesa'),
-        ('Transporte', 'despesa'),
-        ('Moradia', 'despesa'),
-        ('Lazer', 'despesa')
+        ('Salário', 'receita'), ('Alimentação', 'despesa'),
+        ('Transporte', 'despesa'), ('Moradia', 'despesa'), ('Lazer', 'despesa')
     ]
-    
+
     for nome, cat in padroes:
         novo_tipo = Tipo(nome=nome, categoria=cat, id_usuario=novo_user.id)
         db.session.add(novo_tipo)
-    
+
     db.session.commit()
 
     return jsonify({"mensagem": "Usuário criado com sucesso!"})
@@ -128,11 +130,13 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     dados = request.json
-    user = Usuario.query.filter_by(username=dados['username']).first()
-    if user and check_password_hash(user.password_hash, dados['password']):
+    user = Usuario.query.filter_by(email=dados['email']).first()
+
+    if user and user.password == dados['password']:
         login_user(user)
-        return jsonify({"mensagem": f"Bem-vindo, {user.username}!"})
-    return jsonify({"erro": "Credenciais inválidas"}), 401
+        return jsonify({"mensagem": f"Bem-vindo, {user.username}!", "username": user.username})
+
+    return jsonify({"erro": "E-mail ou senha inválidos"}), 401
 
 @app.route('/logout')
 @login_required
@@ -154,20 +158,20 @@ def listar_tipos():
 def criar_tipo():
     dados = request.json
     nome = dados.get('nome')
-    categoria = dados.get('categoria') 
-    
+    categoria = dados.get('categoria')
+
     if not nome or not categoria:
         return jsonify({"erro": "Nome e Categoria são obrigatórios"}), 400
-    
+
     tipo_existente = Tipo.query.filter_by(
-        nome=nome, 
-        categoria=categoria, 
+        nome=nome,
+        categoria=categoria,
         id_usuario=current_user.id
     ).first()
 
     if tipo_existente:
         return jsonify({"erro": f"A categoria '{nome}' já existe em {categoria}."}), 400
-        
+
     novo_tipo = Tipo(nome=nome, categoria=categoria, id_usuario=current_user.id)
     db.session.add(novo_tipo)
     db.session.commit()
@@ -177,14 +181,14 @@ def criar_tipo():
 @login_required
 def excluir_tipo(id_tipo):
     tipo = Tipo.query.filter_by(id=id_tipo, id_usuario=current_user.id).first()
-    
+
     if not tipo:
         return jsonify({"erro": "Categoria não encontrada ou acesso negado"}), 404
-    
+
     uso = Transacao.query.filter_by(id_tipo=id_tipo).first()
     if uso:
         return jsonify({"erro": "Não é possível excluir: Categoria em uso por transações."}), 400
-        
+
     db.session.delete(tipo)
     db.session.commit()
     return jsonify({"mensagem": "Categoria excluída."})
@@ -205,7 +209,7 @@ def criar_cartao():
     nome = dados.get('nome')
     if not nome:
         return jsonify({"erro": "Nome do cartão é obrigatório"}), 400
-        
+
     novo = CartaoCredito(nome=nome, id_usuario=current_user.id)
     db.session.add(novo)
     db.session.commit()
@@ -217,12 +221,12 @@ def excluir_cartao(id_cartao):
     cartao = CartaoCredito.query.filter_by(id=id_cartao, id_usuario=current_user.id).first()
     if not cartao:
         return jsonify({"erro": "Cartão não encontrado"}), 404
-    
+
     # Verifica se tem uso
     uso = Transacao.query.filter_by(id_cartao=id_cartao).first()
     if uso:
         return jsonify({"erro": "Não é possível excluir: Cartão vinculado a transações."}), 400
-        
+
     db.session.delete(cartao)
     db.session.commit()
     return jsonify({"mensagem": "Cartão excluído."})
@@ -234,7 +238,7 @@ def excluir_cartao(id_cartao):
 @login_required
 def nova_transacao():
     dados = request.json
-    
+
     tipo_check = Tipo.query.filter_by(id=dados.get('id_tipo_categoria'), id_usuario=current_user.id).first()
     if not tipo_check:
          return jsonify({"erro": "Categoria inválida"}), 400
@@ -255,7 +259,7 @@ def nova_transacao():
     )
     db.session.add(nova)
     db.session.commit()
-    
+
     # Agora passamos os valores_parcelas para a função
     gerar_parcelas_customizadas(nova, dados['datas_parcelas'], dados.get('valores_parcelas'))
     return jsonify({"mensagem": "Transação criada com sucesso!"})
@@ -265,7 +269,7 @@ def nova_transacao():
 def dashboard():
     inicio_str = request.args.get('inicio')
     fim_str = request.args.get('fim')
-    
+
     if inicio_str and fim_str:
         try:
             inicio = datetime.strptime(inicio_str, '%Y-%m-%d').date()
@@ -276,13 +280,13 @@ def dashboard():
         hoje = datetime.now().date()
         inicio = hoje.replace(day=1)
         fim = (inicio + relativedelta(months=1)) - relativedelta(days=1)
-    
+
     total_receitas = db.session.query(db.func.sum(Parcela.valor))\
         .join(Transacao)\
         .filter(Parcela.id_usuario == current_user.id)\
         .filter(Transacao.tipo_transacao == 'receita')\
         .filter(Parcela.vencimento >= inicio, Parcela.vencimento <= fim).scalar() or 0.0
-    
+
     total_despesas = db.session.query(db.func.sum(Parcela.valor))\
         .join(Transacao)\
         .filter(Parcela.id_usuario == current_user.id)\
@@ -307,7 +311,7 @@ def dashboard():
 
     grafico_despesas = [{"categoria": nome, "total": valor} for nome, valor in despesas_por_cat]
     grafico_receitas = [{"categoria": nome, "total": valor} for nome, valor in receitas_por_cat]
-    
+
     return jsonify({
         "usuario": current_user.username,
         "periodo": f"{inicio.strftime('%d/%m/%Y')} a {fim.strftime('%d/%m/%Y')}",
@@ -323,14 +327,14 @@ def listar_parcelas():
     atualizar_atrasos(current_user.id)
     mes_filtro = request.args.get('mes')
     query = Parcela.query.filter_by(id_usuario=current_user.id)
-    
+
     if mes_filtro:
         inicio = datetime.strptime(mes_filtro, '%Y-%m').date()
         fim = inicio + relativedelta(months=+1)
         query = query.filter(Parcela.vencimento >= inicio, Parcela.vencimento < fim)
-        
+
     parcelas = query.order_by(Parcela.vencimento).all()
-    
+
     lista = []
     for p in parcelas:
         lista.append({
@@ -360,7 +364,7 @@ def baixar_lote():
         Parcela.status: 'pago',
         Parcela.data_pagamento: hoje
     }, synchronize_session=False)
-    
+
     db.session.commit()
     return jsonify({"mensagem": f"{len(ids)} parcelas baixadas com sucesso!"})
 
@@ -376,7 +380,7 @@ def editar_parcela(id_parcela):
     parcela.vencimento = datetime.strptime(dados['vencimento'], '%Y-%m-%d').date()
     parcela.status = dados['status']
     parcela.transacao.descricao = dados['descricao']
-    
+
     if 'id_categoria' in dados and dados['id_categoria']:
         parcela.transacao.id_tipo = int(dados['id_categoria'])
 
@@ -394,7 +398,7 @@ def excluir_parcela(id_parcela):
     parcela = Parcela.query.get(id_parcela)
     if not parcela or parcela.id_usuario != current_user.id:
         return jsonify({"erro": "Parcela não encontrada"}), 404
-    
+
     db.session.delete(parcela)
     db.session.commit()
     return jsonify({"mensagem": "Parcela excluída com sucesso!"})
@@ -406,7 +410,7 @@ def atualizar_atrasos(user_id):
         Parcela.status == 'a_pagar',
         Parcela.vencimento < hoje
     ).update({Parcela.status: 'atrasado'}, synchronize_session=False)
-    
+
     db.session.commit()
 
 # --- NOVA ROTA DO CARD DE CARTÃO ---
@@ -416,7 +420,7 @@ def dashboard_cartao():
     id_cartao = request.args.get('id_cartao')
     inicio_str = request.args.get('inicio')
     fim_str = request.args.get('fim')
-    
+
     if not id_cartao or not inicio_str or not fim_str:
         return jsonify({"erro": "Parâmetros incompletos"}), 400
 
@@ -437,7 +441,7 @@ def dashboard_cartao():
         .group_by(Tipo.nome).all()
 
     dados_grafico = [{"categoria": nome, "total": valor} for nome, valor in resultados]
-    
+
     return jsonify(dados_grafico)
 
 if __name__ == '__main__':
