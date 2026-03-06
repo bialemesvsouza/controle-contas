@@ -27,6 +27,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+function toggleMenuMobile() {
+    const sidebar = document.querySelector('.app-menubar');
+    sidebar.classList.toggle('menu-aberto');
+}
+
 function initDates() {
     const hoje = new Date();
     const primeiroDia = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
@@ -66,6 +71,7 @@ function setupEventListeners() {
 
 // --- NAVEGAÇÃO ---
 function navegarPara(tela) {
+    document.querySelector('.app-menubar').classList.remove('menu-aberto');
     document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
     const activeLink = document.querySelector(`[onclick="navegarPara('${tela}')"]`);
     if (activeLink) activeLink.classList.add('active');
@@ -97,6 +103,7 @@ function navegarPara(tela) {
         loadCategorias(tela === 'categorias');
         loadCartoes();
     }
+    document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
 }
 
 // --- AUTH ---

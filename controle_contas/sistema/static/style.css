@@ -216,3 +216,24 @@ body {
     background-color: rgba(248, 54, 54, 0.15); 
     color: #F83636;
 }
+
+
+@media (max-width: 991.98px) {
+    .app-menubar {
+        left: calc(-1 * var(--app-sidebar-width));
+    }
+    /* ADICIONE ISTO AQUI: */
+    .app-menubar.menu-aberto {
+        left: 0;
+        box-shadow: 10px 0 15px rgba(0,0,0,0.1);
+    }
+    /* O resto já lá está... */
+    .app-wrapper {
+        margin-left: 0;
+        width: 100%;
+    }
+    .app-header {
+        left: 0;
+        width: 100%;
+    }
+}
