@@ -15,6 +15,10 @@ let chartDespesas = null;
 let chartReceitas = null;
 let chartCartaoEspecifico = null;
 
+function formatarMoeda(valor) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     initDates();
     checkAuthStatus();
@@ -49,26 +53,30 @@ function setupEventListeners() {
     document.getElementById('nova-categoria-form').addEventListener('submit', handleNovaCategoria);
     document.getElementById('novo-cartao-form').addEventListener('submit', handleNovoCartao);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    document.getElementById('recover-form-1').addEventListener('submit', handleVerificarEmail);
-    document.getElementById('recover-form-2').addEventListener('submit', handleRedefinirSenha);
+    
+    // Listeners da Recuperação de Senha
+    const recoverForm1 = document.getElementById('recover-form-1');
+    if(recoverForm1) recoverForm1.addEventListener('submit', handleVerificarEmail);
+    
+    const recoverForm2 = document.getElementById('recover-form-2');
+    if(recoverForm2) recoverForm2.addEventListener('submit', handleRedefinirSenha);
 
     // Atualiza a tabela dinamicamente quando o valor total muda
     document.getElementById('transacao-valor').addEventListener('input', gerarCamposData);
 
     const formNovaTransacao = document.getElementById('nova-transacao-form');
-    const campos = formNovaTransacao.querySelectorAll('input, select');
-
-    campos.forEach((campo, index) => {
-        campo.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const proximoCampo = campos[index + 1];
-                if (proximoCampo) {
-                    proximoCampo.focus();
+    if(formNovaTransacao) {
+        const campos = formNovaTransacao.querySelectorAll('input, select');
+        campos.forEach((campo, index) => {
+            campo.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const proximoCampo = campos[index + 1];
+                    if (proximoCampo) proximoCampo.focus();
                 }
-            }
+            });
         });
-    });
+    }
 }
 
 // --- NAVEGAÇÃO ---
@@ -85,8 +93,10 @@ function navegarPara(tela) {
     });
 
     const targetView = document.getElementById(`view-${tela}`);
-    targetView.classList.remove('d-none');
-    targetView.classList.add('active');
+    if(targetView) {
+        targetView.classList.remove('d-none');
+        targetView.classList.add('active');
+    }
 
     // Atualiza o título da página
     const titulos = {
@@ -109,12 +119,15 @@ function navegarPara(tela) {
 }
 
 // --- AUTH ---
-// --- AUTH ---
 function toggleAuth(type) {
     document.getElementById('login-tab').classList.add('d-none');
     document.getElementById('register-tab').classList.add('d-none');
-    document.getElementById('recover-tab').classList.add('d-none');
-    document.getElementById('auth-tabs-nav').classList.remove('d-none');
+    
+    const recoverTab = document.getElementById('recover-tab');
+    if(recoverTab) recoverTab.classList.add('d-none');
+    
+    const authTabsNav = document.getElementById('auth-tabs-nav');
+    if(authTabsNav) authTabsNav.classList.remove('d-none');
 
     const btnLogin = document.getElementById('tab-login-btn');
     const btnReg = document.getElementById('tab-register-btn');
@@ -132,16 +145,20 @@ function toggleAuth(type) {
         btnLogin.classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
         btnLogin.classList.add('text-muted');
     } else if (type === 'recover') {
-        document.getElementById('recover-tab').classList.remove('d-none');
-        document.getElementById('recover-step-1').classList.remove('d-none');
-        document.getElementById('recover-step-2').classList.add('d-none');
-        document.getElementById('auth-tabs-nav').classList.add('d-none'); // Esconde as abas superiores
+        if(recoverTab) {
+            recoverTab.classList.remove('d-none');
+            document.getElementById('recover-step-1').classList.remove('d-none');
+            document.getElementById('recover-step-2').classList.add('d-none');
+        }
+        if(authTabsNav) authTabsNav.classList.add('d-none'); 
     }
 }
 
 function togglePassword(inputId, iconId) {
     const input = document.getElementById(inputId);
     const icon = document.getElementById(iconId);
+    if (!input || !icon) return;
+    
     if (input.type === "password") {
         input.type = "text";
         icon.classList.replace('bx-hide', 'bx-show');
@@ -206,6 +223,42 @@ async function handleRegister(e) {
     });
 }
 
+// Fluxo de Recuperação de Senha
+async function handleVerificarEmail(e) {
+    e.preventDefault();
+    const email = document.getElementById('recover-search-email').value;
+
+    doPost('/verificar_usuario', {email: email}, (data) => {
+        if(data.existe) {
+            document.getElementById('recover-found-user').value = data.username;
+            document.getElementById('recover-found-email').value = data.email;
+            
+            document.getElementById('recover-step-1').classList.add('d-none');
+            document.getElementById('recover-step-2').classList.remove('d-none');
+            showNotification('Usuário encontrado!', 'success');
+        }
+    });
+}
+
+async function handleRedefinirSenha(e) {
+    e.preventDefault();
+    const email = document.getElementById('recover-found-email').value;
+    const p = document.getElementById('recover-password').value;
+    const pConf = document.getElementById('recover-password-confirm').value;
+
+    if (p !== pConf) {
+        showNotification('As novas senhas não coincidem!', 'error');
+        return;
+    }
+
+    doPost('/atualizar_senha_direto', {email: email, password: p}, (data) => {
+        showNotification(data.mensagem);
+        document.getElementById('recover-form-1').reset();
+        document.getElementById('recover-form-2').reset();
+        toggleAuth('login');
+    });
+}
+
 function handleLogout() {
     localStorage.removeItem('currentUser');
     location.reload();
@@ -222,11 +275,12 @@ async function loadDashboard() {
         if (res.ok) {
             const data = await res.json();
 
+            // Usando a nova função formatarMoeda
             const elReceitas = document.getElementById('dash-total-receitas');
-            if(elReceitas) elReceitas.textContent = `R$ ${data.total_receitas.toFixed(2)}`;
+            if(elReceitas) elReceitas.textContent = formatarMoeda(data.total_receitas);
 
             const elDespesas = document.getElementById('dash-total-despesas');
-            if(elDespesas) elDespesas.textContent = `R$ ${data.total_despesas.toFixed(2)}`;
+            if(elDespesas) elDespesas.textContent = formatarMoeda(data.total_despesas);
 
             renderizarGrafico('chart-despesas', 'despesa', data.grafico_despesas);
             renderizarGrafico('chart-receitas', 'receita', data.grafico_receitas);
@@ -234,7 +288,7 @@ async function loadDashboard() {
             const saldo = data.total_receitas - data.total_despesas;
             const elBalanco = document.getElementById('dash-balanco');
             if(elBalanco) {
-                elBalanco.textContent = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(saldo);
+                elBalanco.textContent = formatarMoeda(saldo);
                 elBalanco.className = 'fw-bold mb-0 mt-1 ' + (saldo >= 0 ? 'text-success' : 'text-danger');
             }
 
@@ -289,7 +343,8 @@ function renderizarGrafico(canvasId, tipo, dados) {
                             let label = context.label || '';
                             if (label) label += ': ';
                             const valor = context.raw;
-                            label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+                            // Usando formatarMoeda no tooltip
+                            label += formatarMoeda(valor);
                             return label;
                         }
                     }
@@ -396,11 +451,13 @@ function toggleSelectCartao() {
 
     if (forma === 'Cartão Crédito') {
         divCartao.classList.remove('d-none');
-        inputCartao.setAttribute('required', 'required');
+        if(inputCartao) inputCartao.setAttribute('required', 'required');
     } else {
         divCartao.classList.add('d-none');
-        inputCartao.removeAttribute('required');
-        inputCartao.value = "";
+        if(inputCartao) {
+            inputCartao.removeAttribute('required');
+            inputCartao.value = "";
+        }
     }
 }
 
@@ -578,7 +635,9 @@ function renderizarTabela() {
             <td class="fw-medium text-dark">${p.descricao}</td>
             <td class="text-muted">${p.numero}</td>
             <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
-            <td class="fw-bold">R$ ${parseFloat(p.valor).toFixed(2)}</td>
+            
+            <td class="fw-bold">${formatarMoeda(p.valor)}</td>
+            
             <td>${dataDisplay}</td>
             <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
             <td class="text-end pe-4">
@@ -592,10 +651,12 @@ function renderizarTabela() {
     });
 
     const corTotal = filtroTipoExtrato === 'receita' ? 'text-success' : 'text-danger';
+    
+    // AQUI: Usando formatarMoeda no footer da tabela
     tfoot.innerHTML = `
         <tr>
             <td colspan="4" class="text-end fw-bold text-dark">Total ${filtroTipoExtrato === 'receita' ? 'Receitas' : 'Despesas'}:</td>
-            <td colspan="4" class="fw-bold fs-6 ${corTotal}">R$ ${totalFiltrado.toFixed(2)}</td>
+            <td colspan="4" class="fw-bold fs-6 ${corTotal}">${formatarMoeda(totalFiltrado)}</td>
         </tr>
     `;
 }
@@ -661,7 +722,7 @@ function recalcularValoresAbaixo(indexAlterado) {
     const inputs = document.querySelectorAll('.input-valor-parcela');
     const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
 
-    // Soma tudo que está "acima" e a própria parcela alterada (essas são fixas agora)
+    // Soma tudo que está "acima" e a própria parcela alterada
     let somaFixada = 0;
     for(let i = 0; i <= indexAlterado; i++) {
         somaFixada += parseFloat(inputs[i].value) || 0;
@@ -670,7 +731,6 @@ function recalcularValoresAbaixo(indexAlterado) {
     const restante = valorTotal - somaFixada;
     const parcelasRestantes = inputs.length - 1 - indexAlterado;
 
-    // Se ainda existem parcelas para baixo, divide o resto entre elas
     if (parcelasRestantes > 0) {
         let valorBase = Math.max(0, restante / parcelasRestantes);
         let totalDistribuido = 0;
@@ -678,11 +738,10 @@ function recalcularValoresAbaixo(indexAlterado) {
         for(let i = indexAlterado + 1; i < inputs.length; i++) {
             let v = Number(valorBase.toFixed(2));
 
-            // Se for a última parcela, absorve o erro dos centavos
             if (i === inputs.length - 1 && restante > 0) {
                 v = Number((restante - totalDistribuido).toFixed(2));
             } else if (restante <= 0) {
-                v = 0; // Se o cara já ultrapassou o total, as de baixo viram zero
+                v = 0; 
             }
 
             totalDistribuido += v;
@@ -708,8 +767,9 @@ function calcularSomaParcelas() {
     const elDif = document.getElementById('diferenca-parcelas');
 
     if (elSoma && elDif) {
-        elSoma.textContent = 'R$ ' + soma.toFixed(2);
-        elDif.textContent = 'R$ ' + Math.abs(diferenca).toFixed(2);
+        // AQUI: Usando formatarMoeda no resumo de parcelas
+        elSoma.textContent = formatarMoeda(soma);
+        elDif.textContent = formatarMoeda(Math.abs(diferenca));
 
         if (Math.abs(diferenca) > 0.01) {
             elDif.className = 'text-danger fw-bold';
@@ -734,18 +794,16 @@ function aplicarRecorrenciaLinha(indexBase, tipo) {
 
     const [anoBase, mesBase, diaBase] = dataBaseVal.split('-').map(Number);
 
-    // Aplica as datas a partir da linha ESCOLHIDA para baixo
     for(let i = indexBase + 1; i < inputs.length; i++) {
         if (tipo === '=') {
             inputs[i].value = dataBaseVal;
         } else {
             let novaData = new Date(anoBase, mesBase - 1, diaBase);
-            let delta = i - indexBase; // Distância entre a linha atual e a base
+            let delta = i - indexBase; 
 
             if (tipo === 'M') novaData.setMonth(novaData.getMonth() + delta);
             if (tipo === 'A') novaData.setFullYear(novaData.getFullYear() + delta);
 
-            // Ajuste automático caso caia dia 31 num mês de 30
             if (novaData.getDate() !== diaBase) novaData.setDate(0);
 
             const anoIso = novaData.getFullYear();
@@ -966,6 +1024,7 @@ async function doPost(url, body, callback) {
 
 function showNotification(msg, type='success') {
     const area = document.getElementById('notification-area');
+    if(!area) return;
     const div = document.createElement('div');
     div.className = `notification ${type}`;
     div.textContent = msg;
@@ -1070,50 +1129,13 @@ function renderizarGraficoCartao(dados) {
                             let label = context.label || '';
                             if (label) label += ': ';
                             const valor = context.raw;
-                            label += new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
+                            // Usando formatarMoeda no tooltip
+                            label += formatarMoeda(valor);
                             return label;
                         }
                     }
                 }
             }
         }
-    });
-}
-
-async function handleVerificarEmail(e) {
-    e.preventDefault();
-    const email = document.getElementById('recover-search-email').value;
-
-    doPost('/verificar_usuario', {email: email}, (data) => {
-        // Se sucesso (existe = true)
-        if(data.existe) {
-            // Preenche os dados automáticos e trava os campos
-            document.getElementById('recover-found-user').value = data.username;
-            document.getElementById('recover-found-email').value = data.email;
-            
-            // Avança pro passo 2
-            document.getElementById('recover-step-1').classList.add('d-none');
-            document.getElementById('recover-step-2').classList.remove('d-none');
-            showNotification('Usuário encontrado!', 'success');
-        }
-    });
-}
-
-async function handleRedefinirSenha(e) {
-    e.preventDefault();
-    const email = document.getElementById('recover-found-email').value;
-    const p = document.getElementById('recover-password').value;
-    const pConf = document.getElementById('recover-password-confirm').value;
-
-    if (p !== pConf) {
-        showNotification('As novas senhas não coincidem!', 'error');
-        return;
-    }
-
-    doPost('/atualizar_senha_direto', {email: email, password: p}, (data) => {
-        showNotification(data.mensagem);
-        document.getElementById('recover-form-1').reset();
-        document.getElementById('recover-form-2').reset();
-        toggleAuth('login');
     });
 }
