@@ -49,6 +49,8 @@ function setupEventListeners() {
     document.getElementById('nova-categoria-form').addEventListener('submit', handleNovaCategoria);
     document.getElementById('novo-cartao-form').addEventListener('submit', handleNovoCartao);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    document.getElementById('recover-form-1').addEventListener('submit', handleVerificarEmail);
+    document.getElementById('recover-form-2').addEventListener('submit', handleRedefinirSenha);
 
     // Atualiza a tabela dinamicamente quando o valor total muda
     document.getElementById('transacao-valor').addEventListener('input', gerarCamposData);
@@ -107,21 +109,45 @@ function navegarPara(tela) {
 }
 
 // --- AUTH ---
+// --- AUTH ---
 function toggleAuth(type) {
+    document.getElementById('login-tab').classList.add('d-none');
+    document.getElementById('register-tab').classList.add('d-none');
+    document.getElementById('recover-tab').classList.add('d-none');
+    document.getElementById('auth-tabs-nav').classList.remove('d-none');
+
+    const btnLogin = document.getElementById('tab-login-btn');
+    const btnReg = document.getElementById('tab-register-btn');
+
     if(type === 'login') {
         document.getElementById('login-tab').classList.remove('d-none');
-        document.getElementById('register-tab').classList.add('d-none');
-        document.getElementById('tab-login-btn').classList.add('border-primary', 'border-3', 'fw-bold', 'text-dark');
-        document.getElementById('tab-login-btn').classList.remove('text-muted');
-        document.getElementById('tab-register-btn').classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
-        document.getElementById('tab-register-btn').classList.add('text-muted');
-    } else {
-        document.getElementById('login-tab').classList.add('d-none');
+        btnLogin.classList.add('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        btnLogin.classList.remove('text-muted');
+        btnReg.classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        btnReg.classList.add('text-muted');
+    } else if (type === 'register') {
         document.getElementById('register-tab').classList.remove('d-none');
-        document.getElementById('tab-register-btn').classList.add('border-primary', 'border-3', 'fw-bold', 'text-dark');
-        document.getElementById('tab-register-btn').classList.remove('text-muted');
-        document.getElementById('tab-login-btn').classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
-        document.getElementById('tab-login-btn').classList.add('text-muted');
+        btnReg.classList.add('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        btnReg.classList.remove('text-muted');
+        btnLogin.classList.remove('border-primary', 'border-3', 'fw-bold', 'text-dark');
+        btnLogin.classList.add('text-muted');
+    } else if (type === 'recover') {
+        document.getElementById('recover-tab').classList.remove('d-none');
+        document.getElementById('recover-step-1').classList.remove('d-none');
+        document.getElementById('recover-step-2').classList.add('d-none');
+        document.getElementById('auth-tabs-nav').classList.add('d-none'); // Esconde as abas superiores
+    }
+}
+
+function togglePassword(inputId, iconId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(iconId);
+    if (input.type === "password") {
+        input.type = "text";
+        icon.classList.replace('bx-hide', 'bx-show');
+    } else {
+        input.type = "password";
+        icon.classList.replace('bx-show', 'bx-hide');
     }
 }
 
@@ -167,6 +193,12 @@ async function handleRegister(e) {
     const email = document.getElementById('register-email').value;
     const u = document.getElementById('register-username').value;
     const p = document.getElementById('register-password').value;
+    const pConf = document.getElementById('register-password-confirm').value;
+
+    if (p !== pConf) {
+        showNotification('As senhas não coincidem!', 'error');
+        return;
+    }
 
     doPost('/register', {email: email, username: u, password: p}, (data) => {
         showNotification(data.mensagem);
@@ -1045,5 +1077,43 @@ function renderizarGraficoCartao(dados) {
                 }
             }
         }
+    });
+}
+
+async function handleVerificarEmail(e) {
+    e.preventDefault();
+    const email = document.getElementById('recover-search-email').value;
+
+    doPost('/verificar_usuario', {email: email}, (data) => {
+        // Se sucesso (existe = true)
+        if(data.existe) {
+            // Preenche os dados automáticos e trava os campos
+            document.getElementById('recover-found-user').value = data.username;
+            document.getElementById('recover-found-email').value = data.email;
+            
+            // Avança pro passo 2
+            document.getElementById('recover-step-1').classList.add('d-none');
+            document.getElementById('recover-step-2').classList.remove('d-none');
+            showNotification('Usuário encontrado!', 'success');
+        }
+    });
+}
+
+async function handleRedefinirSenha(e) {
+    e.preventDefault();
+    const email = document.getElementById('recover-found-email').value;
+    const p = document.getElementById('recover-password').value;
+    const pConf = document.getElementById('recover-password-confirm').value;
+
+    if (p !== pConf) {
+        showNotification('As novas senhas não coincidem!', 'error');
+        return;
+    }
+
+    doPost('/atualizar_senha_direto', {email: email, password: p}, (data) => {
+        showNotification(data.mensagem);
+        document.getElementById('recover-form-1').reset();
+        document.getElementById('recover-form-2').reset();
+        toggleAuth('login');
     });
 }

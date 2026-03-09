@@ -444,6 +444,31 @@ def dashboard_cartao():
 
     return jsonify(dados_grafico)
 
+@app.route('/verificar_usuario', methods=['POST'])
+def verificar_usuario():
+    dados = request.json
+    email = dados.get('email')
+    user = Usuario.query.filter_by(email=email).first()
+    
+    if user:
+        return jsonify({"existe": True, "username": user.username, "email": user.email})
+    
+    return jsonify({"erro": "E-mail não encontrado no sistema"}), 404
+
+@app.route('/atualizar_senha_direto', methods=['POST'])
+def atualizar_senha_direto():
+    dados = request.json
+    email = dados.get('email')
+    nova_senha = dados.get('password')
+    
+    user = Usuario.query.filter_by(email=email).first()
+    if user:
+        user.password = nova_senha # Atualiza a senha
+        db.session.commit()
+        return jsonify({"mensagem": "Senha atualizada com sucesso!"})
+        
+    return jsonify({"erro": "Erro ao atualizar senha"}), 400
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

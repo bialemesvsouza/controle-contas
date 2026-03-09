@@ -32,6 +32,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-body-tertiary">
+    <div id="notification-area" class="position-fixed top-0 end-0 p-3" style="z-index: 1050"></div>
 
     <div id="auth-section" class="auth-wrapper min-vh-100 px-2 d-none-important">
         <div class="row g-0 min-vh-100 d-flex align-items-center justify-content-center">
@@ -41,15 +42,13 @@
                         <h3 class="fw-bold text-primary"><i class='bx bx-wallet'></i> SmartGrana</h3>
                     </div>
 
-                    <div class="d-flex mb-4 border-bottom">
+                    <div class="d-flex mb-4 border-bottom" id="auth-tabs-nav">
                         <button class="btn btn-link flex-fill text-decoration-none text-dark fw-bold border-bottom border-primary border-3 rounded-0" id="tab-login-btn" onclick="toggleAuth('login')">Login</button>
                         <button class="btn btn-link flex-fill text-decoration-none text-muted rounded-0" id="tab-register-btn" onclick="toggleAuth('register')">Criar Conta</button>
                     </div>
 
                     <div id="login-tab">
-                        <div class="text-center mb-4">
-                            <h5 class="mb-1">Bem-vindo de volta!</h5>
-                        </div>
+                        <div class="text-center mb-4"><h5 class="mb-1">Bem-vindo de volta!</h5></div>
                         <form id="login-form">
                             <div class="mb-3">
                                 <label class="form-label fw-medium">E-mail</label>
@@ -58,21 +57,23 @@
                                     <input type="email" class="form-control border-start-0 ps-0 bg-light" id="login-email" required placeholder="Digite seu e-mail">
                                 </div>
                             </div>
-                            <div class="mb-4">
+                            <div class="mb-3">
                                 <label class="form-label fw-medium">Senha</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
-                                    <input type="password" class="form-control border-start-0 ps-0 bg-light" id="login-password" required placeholder="********">
+                                    <input type="password" class="form-control border-start-0 border-end-0 ps-0 bg-light" id="login-password" required placeholder="********">
+                                    <button class="btn btn-light border border-start-0" type="button" onclick="togglePassword('login-password', 'icon-login-pass')"><i class='bx bx-hide text-muted' id="icon-login-pass"></i></button>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Entrar no Sistema</button>
+                            <div class="mb-4 text-end">
+                                <a href="#" class="small text-decoration-none fw-medium" onclick="toggleAuth('recover')">Esqueci minha senha</a>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Entrar</button>
                         </form>
                     </div>
 
                     <div id="register-tab" class="d-none">
-                        <div class="text-center mb-4">
-                            <h5 class="mb-1">Crie sua conta</h5>
-                        </div>
+                        <div class="text-center mb-4"><h5 class="mb-1">Crie sua conta</h5></div>
                         <form id="register-form">
                             <div class="mb-3">
                                 <label class="form-label fw-medium">E-mail</label>
@@ -82,21 +83,84 @@
                                 </div>
                             </div>
                             <div class="mb-3">
-                                <label class="form-label fw-medium">Nome de Usuário (Apelido)</label>
+                                <label class="form-label fw-medium">Apelido</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-end-0"><i class='bx bx-user'></i></span>
                                     <input type="text" class="form-control border-start-0 ps-0 bg-light" id="register-username" required placeholder="Como quer ser chamado?">
                                 </div>
                             </div>
-                            <div class="mb-4">
+                            <div class="mb-3">
                                 <label class="form-label fw-medium">Crie uma Senha</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
-                                    <input type="password" class="form-control border-start-0 ps-0 bg-light" id="register-password" required placeholder="********">
+                                    <input type="password" class="form-control border-start-0 border-end-0 ps-0 bg-light" id="register-password" required placeholder="********">
+                                    <button class="btn btn-light border border-start-0" type="button" onclick="togglePassword('register-password', 'icon-reg-pass')"><i class='bx bx-hide text-muted' id="icon-reg-pass"></i></button>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="form-label fw-medium">Confirme a Senha</label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class='bx bx-check-shield'></i></span>
+                                    <input type="password" class="form-control border-start-0 border-end-0 ps-0 bg-light" id="register-password-confirm" required placeholder="********">
+                                    <button class="btn btn-light border border-start-0" type="button" onclick="togglePassword('register-password-confirm', 'icon-reg-conf')"><i class='bx bx-hide text-muted' id="icon-reg-conf"></i></button>
                                 </div>
                             </div>
                             <button type="submit" class="btn btn-secondary w-100 py-2 fw-semibold">Registrar</button>
                         </form>
+                    </div>
+
+                    <div id="recover-tab" class="d-none">
+                        
+                        <div id="recover-step-1">
+                            <div class="text-center mb-4"><h5 class="mb-1">Recuperar Senha</h5><p class="small text-muted">Digite seu e-mail para buscar a conta.</p></div>
+                            <form id="recover-form-1">
+                                <div class="mb-4">
+                                    <label class="form-label fw-medium">E-mail Cadastrado</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-envelope'></i></span>
+                                        <input type="email" class="form-control border-start-0 ps-0 bg-light" id="recover-search-email" required placeholder="Seu e-mail">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold">Buscar Conta</button>
+                                <button type="button" class="btn btn-link w-100 mt-2 text-muted text-decoration-none" onclick="toggleAuth('login')">Voltar ao Login</button>
+                            </form>
+                        </div>
+
+                        <div id="recover-step-2" class="d-none">
+                            <div class="text-center mb-4"><h5 class="mb-1">Criar Nova Senha</h5></div>
+                            <form id="recover-form-2">
+                                <div class="row g-2 mb-3">
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">Usuário encontrado:</label>
+                                        <input type="text" class="form-control form-control-sm bg-light text-muted fw-bold" id="recover-found-user" readonly>
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="form-label small text-muted mb-1">E-mail:</label>
+                                        <input type="email" class="form-control form-control-sm bg-light text-muted fw-bold" id="recover-found-email" readonly>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label fw-medium">Nova Senha</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-lock-alt'></i></span>
+                                        <input type="password" class="form-control border-start-0 border-end-0 ps-0 bg-light" id="recover-password" required placeholder="********">
+                                        <button class="btn btn-light border border-start-0" type="button" onclick="togglePassword('recover-password', 'icon-rec-pass')"><i class='bx bx-hide text-muted' id="icon-rec-pass"></i></button>
+                                    </div>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-medium">Confirme a Nova Senha</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0"><i class='bx bx-check-shield'></i></span>
+                                        <input type="password" class="form-control border-start-0 border-end-0 ps-0 bg-light" id="recover-password-confirm" required placeholder="********">
+                                        <button class="btn btn-light border border-start-0" type="button" onclick="togglePassword('recover-password-confirm', 'icon-rec-conf')"><i class='bx bx-hide text-muted' id="icon-rec-conf"></i></button>
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success w-100 py-2 fw-semibold">Salvar Nova Senha</button>
+                                <button type="button" class="btn btn-link w-100 mt-2 text-muted text-decoration-none" onclick="toggleAuth('login')">Cancelar</button>
+                            </form>
+                        </div>
+
                     </div>
                 </div>
             </div>
@@ -147,8 +211,6 @@
 
         <main class="app-wrapper bg-body-tertiary">
             <div class="container-fluid p-4">
-                <div id="notification-area" class="position-fixed top-0 end-0 p-3" style="z-index: 1050"></div>
-
                 <div id="view-dashboard" class="view-section">
                     <div class="card border-0 shadow-sm rounded-4 mb-4">
                         <div class="card-body p-3 d-flex flex-wrap gap-3 align-items-end">
