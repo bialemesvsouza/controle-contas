@@ -237,3 +237,16 @@ body {
         width: 100%;
     }
 }
+
+/* Ajuste do Extrato (Rover) para telas de celular */
+@media (max-width: 576px) {
+    .rover-item {
+        padding: 6px 4px;
+        font-size: 0.8rem;
+    }
+    /* Esconde o mês mais antigo e o mais no futuro no celular */
+    #rover-lista .rover-item:first-child,
+    #rover-lista .rover-item:last-child {
+        display: none;
+    }
+}
