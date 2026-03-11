@@ -234,34 +234,45 @@
                     </div>
 
                     <div class="row g-3 mb-4">
-                        <div class="col-xl-4 col-md-6">
+                        <div class="col-xl-3 col-md-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100" style="background: linear-gradient(135deg, var(--bs-primary) 0%, #7008E7 100%); color: white;">
+                                <div class="card-body d-flex align-items-center gap-3">
+                                    <div class="bg-white text-primary p-3 rounded-3 fs-3"><i class='bx bx-building-house'></i></div>
+                                    <div>
+                                        <span class="text-white-50 fw-medium small">Saldo Acumulado (Até Hoje)</span>
+                                        <h3 class="fw-bold mb-0 mt-1 text-white" id="dash-saldo-acumulado">R$ 0,00</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-xl-3 col-md-6">
                             <div class="card border-0 shadow-sm rounded-4 h-100">
                                 <div class="card-body d-flex align-items-center gap-3">
                                     <div class="bg-primary-subtle text-primary p-3 rounded-3 fs-3"><i class='bx bx-wallet'></i></div>
                                     <div>
-                                        <span class="text-muted fw-medium small">Balanço Geral</span>
+                                        <span class="text-muted fw-medium small">Balanço do Período</span>
                                         <h3 class="fw-bold mb-0 mt-1" id="dash-balanco">R$ 0,00</h3>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-4 col-md-6">
+                        <div class="col-xl-3 col-md-6">
                             <div class="card border-0 shadow-sm rounded-4 h-100">
                                 <div class="card-body d-flex align-items-center gap-3">
                                     <div class="bg-success-subtle text-success p-3 rounded-3 fs-3"><i class='bx bx-trending-up'></i></div>
                                     <div>
-                                        <span class="text-muted fw-medium small">Total Receitas</span>
+                                        <span class="text-muted fw-medium small">Receitas do Período</span>
                                         <h3 class="fw-bold mb-0 mt-1" id="dash-total-receitas">R$ 0,00</h3>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                        <div class="col-xl-4 col-md-6">
+                        <div class="col-xl-3 col-md-6">
                             <div class="card border-0 shadow-sm rounded-4 h-100">
                                 <div class="card-body d-flex align-items-center gap-3">
                                     <div class="bg-danger-subtle text-danger p-3 rounded-3 fs-3"><i class='bx bx-trending-down'></i></div>
                                     <div>
-                                        <span class="text-muted fw-medium small">Total Despesas</span>
+                                        <span class="text-muted fw-medium small">Despesas do Período</span>
                                         <h3 class="fw-bold mb-0 mt-1" id="dash-total-despesas">R$ 0,00</h3>
                                     </div>
                                 </div>
@@ -292,6 +303,82 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="row g-3 mt-2">
+                        <div class="col-lg-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h6 class="fw-bold text-dark mb-0"><i class='bx bx-history text-primary'></i> Fechamento de Meses Anteriores</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-hover align-middle mb-0 text-center text-sm">
+                                            <thead class="table-light text-muted small sticky-top">
+                                                <tr>
+                                                    <th>Mês</th>
+                                                    <th>Receitas</th>
+                                                    <th>Despesas</th>
+                                                    <th>Resultado</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tabela-fechamento"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h6 class="fw-bold text-dark mb-0"><i class='bx bx-calendar-event text-primary'></i> Previsão (Próximos 12 Meses)</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive" style="max-height: 300px; overflow-y: auto;">
+                                        <table class="table table-hover align-middle mb-0 text-center text-sm">
+                                            <thead class="table-light text-muted small sticky-top">
+                                                <tr>
+                                                    <th>Mês</th>
+                                                    <th>Receitas Previstas</th>
+                                                    <th>Despesas Previstas</th>
+                                                    <th>Saldo Previsto</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tabela-previsao"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-2 mb-4">
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h6 class="fw-bold text-dark mb-0"><i class='bx bx-alarm-exclamation text-danger'></i> Contas Pendentes de Pagamento</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                        <table class="table table-hover align-middle mb-0 text-sm">
+                                            <thead class="table-light text-muted small sticky-top">
+                                                <tr>
+                                                    <th class="ps-4">Vencimento</th>
+                                                    <th>Descrição</th>
+                                                    <th>Categoria</th>
+                                                    <th>Parc.</th>
+                                                    <th>Valor</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="tabela-pendentes"></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div id="view-extrato" class="view-section d-none">
@@ -482,6 +569,7 @@
                         </div>
                     </div>
                 </div>
+
                 <div id="view-simulacao" class="view-section d-none">
                     <div class="row g-4">
                         <div class="col-lg-4">

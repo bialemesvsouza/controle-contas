@@ -469,6 +469,76 @@ def atualizar_senha_direto():
         
     return jsonify({"erro": "Erro ao atualizar senha"}), 400
 
+
+@app.route('/api/dashboard/extras', methods=['GET'])
+@login_required
+def dashboard_extras():
+    atualizar_atrasos(current_user.id) # Garante que os status estejam atualizados
+    
+    hoje = datetime.now().date()
+    mes_atual_str = hoje.strftime('%Y-%m')
+    limite_futuro = hoje + relativedelta(months=12)
+    limite_futuro_str = limite_futuro.strftime('%Y-%m')
+
+    # Busca as parcelas e transações associadas do usuário logado
+    parcelas_query = db.session.query(Parcela, Transacao).join(Transacao).filter(Parcela.id_usuario == current_user.id).all()
+
+    saldo_acumulado = 0.0
+    meses_fechados = {}
+    meses_futuros = {}
+    pendentes = []
+
+    for p, t in parcelas_query:
+        valor = p.valor
+        mes_p = p.vencimento.strftime('%Y-%m')
+        
+        # 1. Saldo Acumulado (Até o dia de hoje)
+        if p.vencimento <= hoje:
+            if t.tipo_transacao == 'receita':
+                saldo_acumulado += valor
+            else:
+                saldo_acumulado -= valor
+                
+        # 2. Relatório de Fechamento (Meses Anteriores)
+        if mes_p < mes_atual_str:
+            if mes_p not in meses_fechados:
+                meses_fechados[mes_p] = {"receitas": 0.0, "despesas": 0.0}
+            if t.tipo_transacao == 'receita':
+                meses_fechados[mes_p]["receitas"] += valor
+            else:
+                meses_fechados[mes_p]["despesas"] += valor
+                
+        # 3. Previsão para os próximos 12 meses
+        if mes_atual_str <= mes_p < limite_futuro_str:
+            if mes_p not in meses_futuros:
+                meses_futuros[mes_p] = {"receitas": 0.0, "despesas": 0.0}
+            if t.tipo_transacao == 'receita':
+                meses_futuros[mes_p]["receitas"] += valor
+            else:
+                meses_futuros[mes_p]["despesas"] += valor
+                
+        # 4. Pendentes de Pagamento
+        if p.status in ['a_pagar', 'atrasado'] and t.tipo_transacao == 'despesa':
+            pendentes.append({
+                "id": p.id,
+                "descricao": t.descricao,
+                "numero": f"{p.numero_parcela}/{t.qtd_parcelas}",
+                "valor": p.valor,
+                "vencimento": str(p.vencimento),
+                "status": p.status,
+                "categoria": t.tipo.nome if t.tipo else 'Geral'
+            })
+            
+    # Ordenar os pendentes da data mais antiga para a mais nova
+    pendentes.sort(key=lambda x: datetime.strptime(x["vencimento"], '%Y-%m-%d'))
+
+    return jsonify({
+        "saldo_acumulado": saldo_acumulado,
+        "meses_fechados": meses_fechados,
+        "meses_futuros": meses_futuros,
+        "pendentes": pendentes
+    })
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

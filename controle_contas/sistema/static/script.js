@@ -113,7 +113,7 @@ function navegarPara(tela) {
     const titleElement = document.querySelector('.page-title');
     if(titleElement) titleElement.textContent = titulos[tela] || 'SmartGrana';
 
-    if(tela === 'dashboard') loadDashboard();
+    if(tela === 'dashboard') loadDashboard(), carregarDadosExtrasDashboard();
     if(tela === 'extrato') loadParcelas();
 
     if(tela === 'novo' || tela === 'categorias') {
@@ -901,6 +901,7 @@ function baixarSelecionados() {
             showNotification(data.mensagem);
             loadParcelas();
             loadDashboard();
+            carregarDadosExtrasDashboard();
         });
     });
 }
@@ -977,6 +978,7 @@ async function salvarEdicao(e) {
         fecharModal();
         loadParcelas();
         loadDashboard();
+        carregarDadosExtrasDashboard();
     });
 }
 
@@ -991,6 +993,7 @@ function confirmarExclusao() {
                 fecharModal();
                 loadParcelas();
                 loadDashboard();
+                carregarDadosExtrasDashboard();
             } else showNotification(data.erro, 'error');
         } catch(e) { showNotification('Erro ao excluir', 'error'); }
     });
@@ -1005,6 +1008,7 @@ function excluirDireto(id) {
                 showNotification(data.mensagem, 'success');
                 loadParcelas();
                 loadDashboard();
+                carregarDadosExtrasDashboard();
             } else {
                 showNotification(data.erro, 'error');
             }
@@ -1238,4 +1242,92 @@ async function realizarSimulacao(e) {
         console.error("Erro ao simular:", error);
         showNotification("Erro ao processar simulação", "error");
     }
+}
+
+async function carregarDadosExtrasDashboard() {
+    try {
+        // Agora chamamos a nossa nova rota super otimizada do Python
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/extras`);
+        if (!res.ok) return;
+        
+        const dados = await res.json();
+        
+        // Atualiza UI: Saldo Acumulado
+        document.getElementById('dash-saldo-acumulado').textContent = formatarMoeda(dados.saldo_acumulado);
+
+        // Renderiza Tabelas
+        renderizarTabelaMeses('tabela-fechamento', dados.meses_fechados, true); // true = descrescente (mais recente no topo)
+        renderizarTabelaMeses('tabela-previsao', dados.meses_futuros, false);   // false = crescente (próximos meses no topo)
+        renderizarPendentes(dados.pendentes);
+
+    } catch (error) {
+        console.error("Erro ao carregar dados extras:", error);
+    }
+}
+
+function formatarMesAnoUI(mesIso) {
+    const [ano, mes] = mesIso.split('-');
+    const data = new Date(ano, mes - 1, 10);
+    let str = data.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function renderizarTabelaMeses(idTabela, dadosDict, desc) {
+    const tbody = document.getElementById(idTabela);
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    let chaves = Object.keys(dadosDict).sort();
+    if (desc) chaves.reverse();
+
+    if (chaves.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="text-muted py-5">Nenhum dado encontrado.</td></tr>`;
+        return;
+    }
+
+    chaves.forEach(mes => {
+        const row = dadosDict[mes];
+        const saldo = row.receitas - row.despesas;
+        const cor = saldo >= 0 ? 'text-success' : 'text-danger';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="fw-bold text-dark">${formatarMesAnoUI(mes)}</td>
+            <td class="text-success fw-medium">${formatarMoeda(row.receitas)}</td>
+            <td class="text-danger fw-medium">${formatarMoeda(row.despesas)}</td>
+            <td class="fw-bold ${cor} bg-light">${formatarMoeda(saldo)}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function renderizarPendentes(lista) {
+    const tbody = document.getElementById('tabela-pendentes');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    if (lista.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-success py-5"><i class='bx bx-check-circle fs-3 d-block mb-2'></i> Oba! Nenhuma conta pendente de pagamento.</td></tr>`;
+        return;
+    }
+
+    // Ordenar do mais antigo para o mais novo
+    lista.sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
+
+    lista.forEach(p => {
+        const dataParts = p.vencimento.split('-');
+        const dataDisplay = `${dataParts[2]}/${dataParts[1]}/${dataParts[0]}`;
+        const badge = p.status === 'atrasado' ? 'status-atrasado' : 'status-a_pagar';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td class="ps-4 fw-medium">${dataDisplay}</td>
+            <td class="fw-bold text-dark">${p.descricao}</td>
+            <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
+            <td class="text-muted">${p.numero}</td>
+            <td class="fw-bold text-danger">${formatarMoeda(p.valor)}</td>
+            <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
 }
