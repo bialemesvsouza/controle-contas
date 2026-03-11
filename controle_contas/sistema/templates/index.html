@@ -472,7 +472,7 @@
                                         <div class="row g-3 mb-3">
                                             <div class="col-md-6">
                                                 <label class="form-label fw-medium text-muted small">Valor Total (R$)</label>
-                                                <input type="number" class="form-control bg-light border-0" id="transacao-valor" step="0.01" required placeholder="0,00">
+                                                <input type="text" class="form-control bg-light border-0" id="transacao-valor" required placeholder="0,00" oninput="mascaraMilhar(event)">
                                             </div>
                                             <div class="col-md-6">
                                                 <label class="form-label fw-medium text-muted small">Nº Parcelas</label>
@@ -614,7 +614,7 @@
                                     <form id="form-simulacao" onsubmit="realizarSimulacao(event)">
                                         <div class="mb-3">
                                             <label class="form-label text-muted small fw-medium">Valor Total da Compra/Receita (R$)</label>
-                                            <input type="number" class="form-control bg-light border-0" id="sim-valor" step="0.01" min="0.01" required>
+                                            <input type="text" class="form-control bg-light border-0" id="sim-valor" required oninput="mascaraMilhar(event)">
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label text-muted small fw-medium">Quantidade de Parcelas</label>
@@ -694,7 +694,7 @@
                     <div class="row g-2 mb-3">
                         <div class="col-6 form-group">
                             <label class="form-label small text-muted">Valor (R$)</label>
-                            <input type="number" class="form-control bg-light border-0" id="edit-valor" step="0.01" required>
+                            <input type="text" class="form-control bg-light border-0" id="edit-valor" required oninput="mascaraMilhar(event)">
                         </div>
                         <div class="col-6 form-group">
                             <label class="form-label small text-muted">Vencimento</label>

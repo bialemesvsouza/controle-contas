@@ -19,6 +19,42 @@ function formatarMoeda(valor) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 }
 
+// --- FUNÇÕES DE MÁSCARA E FORMATAÇÃO ---
+function mascaraMilhar(event) {
+    let input = event.target;
+    // Pega apenas números e a vírgula
+    let valor = input.value.replace(/[^\d,]/g, '');
+    
+    // Garante que só tenha uma vírgula
+    let partes = valor.split(',');
+    if (partes.length > 2) {
+        partes = [partes[0], partes.slice(1).join('')];
+    }
+    
+    // Adiciona os pontos na casa do milhar (parte inteira)
+    partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    
+    input.value = partes.join(',');
+}
+
+function limparFormatacao(valorFormatado) {
+    if (!valorFormatado) return 0;
+    if (typeof valorFormatado === 'number') return valorFormatado;
+    // Remove os pontos e troca a vírgula por ponto para o JavaScript conseguir calcular
+    return parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.')) || 0;
+}
+
+// NOVO: Converte um número de sistema (1000.5) para o visual do input (1.000,50)
+function formatarValorInput(valor) {
+    let num = parseFloat(valor);
+    if (isNaN(num)) return "0,00";
+    let formatado = num.toFixed(2).replace('.', ',');
+    let partes = formatado.split(',');
+    partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return partes.join(',');
+}
+// --------------------------------
+
 document.addEventListener('DOMContentLoaded', function() {
     initDates();
     checkAuthStatus();
@@ -774,7 +810,7 @@ function gerarCamposData() {
     let qtd = parseInt(inputQtd.value);
     if (isNaN(qtd) || qtd < 1) qtd = 1;
 
-    const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
+    const valorTotal = limparFormatacao(document.getElementById('transacao-valor').value);
     const container = document.getElementById('container-datas');
     container.innerHTML = '';
 
@@ -803,7 +839,7 @@ function gerarCamposData() {
             <td>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text bg-white border-end-0 text-muted">R$</span>
-                    <input type="number" class="form-control form-control-sm border-start-0 ps-0 input-valor-parcela fw-bold text-dark" value="${somaArr[i].toFixed(2)}" step="0.01" min="0" required onchange="recalcularValoresAbaixo(${i})" oninput="calcularSomaParcelas()">
+                    <input type="text" class="form-control form-control-sm border-start-0 ps-0 input-valor-parcela fw-bold text-dark" value="${formatarValorInput(somaArr[i])}" required onchange="recalcularValoresAbaixo(${i})" oninput="mascaraMilhar(event); calcularSomaParcelas()">
                 </div>
             </td>
             <td>
@@ -824,12 +860,12 @@ function gerarCamposData() {
 
 function recalcularValoresAbaixo(indexAlterado) {
     const inputs = document.querySelectorAll('.input-valor-parcela');
-    const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
+    const valorTotal = limparFormatacao(document.getElementById('transacao-valor').value);
 
     // Soma tudo que está "acima" e a própria parcela alterada
     let somaFixada = 0;
     for(let i = 0; i <= indexAlterado; i++) {
-        somaFixada += parseFloat(inputs[i].value) || 0;
+        somaFixada += limparFormatacao(inputs[i].value) || 0;
     }
 
     const restante = valorTotal - somaFixada;
@@ -849,7 +885,8 @@ function recalcularValoresAbaixo(indexAlterado) {
             }
 
             totalDistribuido += v;
-            inputs[i].value = v.toFixed(2);
+            // AQUI ADICIONEI O formatarValorInput PARA PREENCHER COM PONTOS
+            inputs[i].value = formatarValorInput(v);
         }
     }
 
@@ -860,18 +897,17 @@ function calcularSomaParcelas() {
     const elValorTotal = document.getElementById('transacao-valor');
     if(!elValorTotal) return;
 
-    const valorTotal = parseFloat(elValorTotal.value) || 0;
+    const valorTotal = limparFormatacao(elValorTotal.value);
     const inputsValores = document.querySelectorAll('.input-valor-parcela');
     let soma = 0;
 
-    inputsValores.forEach(input => { soma += parseFloat(input.value) || 0; });
+    inputsValores.forEach(input => { soma += limparFormatacao(input.value) || 0; });
 
     const diferenca = valorTotal - soma;
     const elSoma = document.getElementById('soma-parcelas');
     const elDif = document.getElementById('diferenca-parcelas');
 
     if (elSoma && elDif) {
-        // AQUI: Usando formatarMoeda no resumo de parcelas
         elSoma.textContent = formatarMoeda(soma);
         elDif.textContent = formatarMoeda(Math.abs(diferenca));
 
@@ -926,9 +962,9 @@ async function handleNovaTransacao(e) {
     const listaDatas = Array.from(inputsData).map(input => input.value);
 
     const inputsValor = document.querySelectorAll('.input-valor-parcela');
-    const listaValores = Array.from(inputsValor).map(input => parseFloat(input.value) || 0);
+    const listaValores = Array.from(inputsValor).map(input => limparFormatacao(input.value) || 0);
 
-    const valorTotal = parseFloat(document.getElementById('transacao-valor').value) || 0;
+    const valorTotal = limparFormatacao(document.getElementById('transacao-valor').value);
     const somaValores = listaValores.reduce((a, b) => a + b, 0);
 
     if (Math.abs(valorTotal - somaValores) > 0.01) {
@@ -1011,7 +1047,8 @@ function abrirModal(index) {
 
     document.getElementById('edit-id').value = p.id;
     document.getElementById('edit-descricao').value = p.descricao;
-    document.getElementById('edit-valor').value = p.valor;
+    // AQUI ADICIONEI O formatarValorInput PARA PREENCHER COM PONTOS NO MODAL
+    document.getElementById('edit-valor').value = formatarValorInput(p.valor);
     document.getElementById('edit-vencimento').value = p.vencimento;
 
     const selectStatus = document.getElementById('edit-status');
@@ -1066,7 +1103,7 @@ async function salvarEdicao(e) {
 
     const body = {
         descricao: document.getElementById('edit-descricao').value,
-        valor: document.getElementById('edit-valor').value,
+        valor: limparFormatacao(document.getElementById('edit-valor').value),
         vencimento: document.getElementById('edit-vencimento').value,
         status: statusParaEnviar,
         id_categoria: document.getElementById('edit-categoria').value
@@ -1267,7 +1304,7 @@ function renderizarGraficoCartao(dados) {
 async function realizarSimulacao(e) {
     e.preventDefault();
     
-    const valorTotal = parseFloat(document.getElementById('sim-valor').value);
+    const valorTotal = limparFormatacao(document.getElementById('sim-valor').value);
     const qtdParcelas = parseInt(document.getElementById('sim-parcelas').value);
     const mesInicio = document.getElementById('sim-mes-inicio').value; // Formato "YYYY-MM"
     const tipo = document.getElementById('sim-tipo').value;
