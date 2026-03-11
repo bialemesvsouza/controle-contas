@@ -175,17 +175,34 @@ function togglePassword(inputId, iconId) {
 
 async function checkAuthStatus() {
     const userStored = localStorage.getItem('currentUser');
+    
+    // Se não tem nada no cache, já mostra o login direto
     if (!userStored) {
-        document.getElementById('auth-section').classList.remove('d-none-important');
-        document.getElementById('app-nav').classList.add('d-none-important');
+        mostrarTelaLogin();
         return;
     }
+
     try {
-        currentUser = JSON.parse(userStored);
-        showApp();
-    } catch {
-        document.getElementById('auth-section').classList.remove('d-none-important');
+        const res = await fetch(`${API_BASE_URL}/api/tipos`);
+        
+        if (res.ok) {
+            currentUser = JSON.parse(userStored);
+            showApp();
+        } else {
+            localStorage.removeItem('currentUser');
+            mostrarTelaLogin();
+            showNotification('Sua sessão expirou. Faça login novamente.', 'error');
+        }
+    } catch (e) {
+        // Erro de rede 
+        mostrarTelaLogin();
     }
+}
+
+// Função auxiliar para evitar repetição de código
+function mostrarTelaLogin() {
+    document.getElementById('auth-section').classList.remove('d-none-important');
+    document.getElementById('app-nav').classList.add('d-none-important');
 }
 
 function showApp() {
@@ -1107,10 +1124,23 @@ async function doPost(url, body, callback) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(body)
         });
+        
+        if (res.status === 401) {
+            handleLogout(); // Força o logout se a sessão expirou
+            showNotification('Sua sessão expirou.', 'error');
+            return;
+        }
+
         const data = await res.json();
-        if (res.ok) callback(data);
-        else showNotification(data.erro, 'error');
-    } catch(e) { console.error(e); showNotification('Erro de conexão', 'error'); }
+        if (res.ok) {
+            callback(data);
+        } else {
+            showNotification(data.erro, 'error');
+        }
+    } catch(e) { 
+        console.error(e); 
+        showNotification('Erro de conexão', 'error'); 
+    }
 }
 
 function showNotification(msg, type='success') {

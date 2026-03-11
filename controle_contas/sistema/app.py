@@ -66,6 +66,11 @@ class Parcela(db.Model):
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
 
+@login_manager.unauthorized_handler
+def unauthorized_callback():
+    return jsonify({"erro": "Sessão expirada. Faça login novamente."}), 401
+
+
 # --- LÓGICA AUXILIAR ---
 def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
     if transacao_obj.tipo_transacao == 'receita':
