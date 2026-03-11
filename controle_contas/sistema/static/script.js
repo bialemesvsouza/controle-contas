@@ -44,6 +44,10 @@ function initDates() {
     dashDataFim = ultimoDia.toISOString().split('T')[0];
     document.getElementById('dash-inicio').value = dashDataInicio;
     document.getElementById('dash-fim').value = dashDataFim;
+
+    if(document.getElementById('sim-mes-inicio')) {
+        document.getElementById('sim-mes-inicio').value = new Date().toISOString().slice(0, 7);
+    }
 }
 
 function setupEventListeners() {
@@ -103,7 +107,8 @@ function navegarPara(tela) {
         'dashboard': 'Visão Geral',
         'extrato': 'Extrato Mensal',
         'novo': 'Nova Transação',
-        'categorias': 'Cadastros'
+        'categorias': 'Cadastros',
+        'simulacao': 'Simulador de Contas'
     };
     const titleElement = document.querySelector('.page-title');
     if(titleElement) titleElement.textContent = titulos[tela] || 'SmartGrana';
@@ -1138,4 +1143,99 @@ function renderizarGraficoCartao(dados) {
             }
         }
     });
+}
+
+// ==========================================
+// LÓGICA DE SIMULAÇÃO DE CONTAS
+// ==========================================
+async function realizarSimulacao(e) {
+    e.preventDefault();
+    
+    const valorTotal = parseFloat(document.getElementById('sim-valor').value);
+    const qtdParcelas = parseInt(document.getElementById('sim-parcelas').value);
+    const mesInicio = document.getElementById('sim-mes-inicio').value; // Formato "YYYY-MM"
+    const tipo = document.getElementById('sim-tipo').value;
+    
+    const valorParcela = valorTotal / qtdParcelas;
+    
+    try {
+        // Busca TODAS as parcelas do usuário chamando o endpoint sem filtro de mês
+        const res = await fetch(`${API_BASE_URL}/parcelas`);
+        if (!res.ok) throw new Error('Erro ao buscar parcelas');
+        
+        const todasParcelas = await res.json();
+        
+        // 1. Agrupar saldos cadastrados por mês
+        const saldosPorMes = {};
+        
+        todasParcelas.forEach(p => {
+            const mesStr = p.vencimento.slice(0, 7); // Extrai "YYYY-MM"
+            if (!saldosPorMes[mesStr]) {
+                saldosPorMes[mesStr] = { receitas: 0, despesas: 0 };
+            }
+            if (p.tipo === 'receita') saldosPorMes[mesStr].receitas += parseFloat(p.valor);
+            else saldosPorMes[mesStr].despesas += parseFloat(p.valor);
+        });
+        
+        // 2. Criar a lista de meses que serão afetados pela compra
+        const mesesAfetados = [];
+        const [anoInicial, mesInicial] = mesInicio.split('-').map(Number);
+        
+        for (let i = 0; i < qtdParcelas; i++) {
+            // Ao criar a data dessa forma, se o mês passar de 12 o JS ajusta o ano automaticamente
+            const data = new Date(anoInicial, (mesInicial - 1) + i, 1);
+            const anoFormatado = data.getFullYear();
+            const mesFormatado = String(data.getMonth() + 1).padStart(2, '0');
+            mesesAfetados.push(`${anoFormatado}-${mesFormatado}`);
+        }
+        
+        // 3. Montar a tabela de resultados
+        const tbody = document.getElementById('simulacao-resultados');
+        tbody.innerHTML = '';
+        
+        mesesAfetados.forEach((mes) => {
+            const dadosDoMes = saldosPorMes[mes] || { receitas: 0, despesas: 0 };
+            const saldoBaseAtual = dadosDoMes.receitas - dadosDoMes.despesas;
+            
+            let novoSaldo = saldoBaseAtual;
+            if (tipo === 'despesa') {
+                novoSaldo -= valorParcela;
+            } else {
+                novoSaldo += valorParcela;
+            }
+            
+            // Formatando o nome do Mês para exibição (ex: Jan/2026)
+            const [a, m] = mes.split('-');
+            const dataExibicao = new Date(a, m - 1, 10);
+            let mesCapitalizado = dataExibicao.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
+            mesCapitalizado = mesCapitalizado.charAt(0).toUpperCase() + mesCapitalizado.slice(1);
+            
+            // Decidindo cores e status baseados no Novo Saldo final
+            let situacaoHtml = '';
+            if (novoSaldo < 0) {
+                situacaoHtml = '<span class="badge bg-danger-subtle text-danger border border-danger p-2"><i class="bx bx-error"></i> Negativo</span>';
+            } else if (novoSaldo < 150) { // Margem de alerta curta
+                situacaoHtml = '<span class="badge bg-warning-subtle text-warning border border-warning p-2"><i class="bx bx-info-circle"></i> Apertado</span>';
+            } else {
+                situacaoHtml = '<span class="badge bg-success-subtle text-success border border-success p-2"><i class="bx bx-check-shield"></i> Seguro</span>';
+            }
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="fw-bold">${mesCapitalizado}</td>
+                <td class="fw-medium text-muted">${formatarMoeda(saldoBaseAtual)}</td>
+                <td class="${tipo === 'despesa' ? 'text-danger' : 'text-success'} fw-medium">
+                    ${tipo === 'despesa' ? '-' : '+'}${formatarMoeda(valorParcela)}
+                </td>
+                <td class="fw-bold ${novoSaldo < 0 ? 'text-danger' : 'text-success'} fs-6">${formatarMoeda(novoSaldo)}</td>
+                <td>${situacaoHtml}</td>
+            `;
+            
+            tbody.appendChild(tr);
+        });
+        
+    } catch (error) {
+        console.error("Erro ao simular:", error);
+        showNotification("Erro ao processar simulação", "error");
+    }
 }

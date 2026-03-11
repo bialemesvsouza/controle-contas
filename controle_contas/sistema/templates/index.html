@@ -206,6 +206,7 @@
                     <li class="menu-item mb-1"><a class="menu-link active d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('dashboard')"><i class='bx bx-home-alt fs-5'></i> <span class="fw-medium">Dashboard</span></a></li>
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('extrato')"><i class='bx bx-list-ul fs-5'></i> <span class="fw-medium">Extrato Mensal</span></a></li>
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('novo')"><i class='bx bx-plus-circle fs-5'></i> <span class="fw-medium">Nova Transação</span></a></li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('simulacao')"><i class='bx bx-line-chart fs-5'></i> <span class="fw-medium">Simulação</span></a></li>
 
                     <li class="menu-heading text-muted text-uppercase text-xs fw-bold mb-2 mt-4 px-3">Configurações</li>
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('categorias')"><i class='bx bx-cog fs-5'></i> <span class="fw-medium">Cadastros</span></a></li>
@@ -476,6 +477,73 @@
                                         <button type="submit" class="btn btn-primary text-nowrap">Salvar</button>
                                     </form>
                                     <div id="lista-cartoes-cadastrados" class="d-flex flex-column gap-2"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="view-simulacao" class="view-section d-none">
+                    <div class="row g-4">
+                        <div class="col-lg-4">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-calculator text-primary'></i> Nova Simulação</h5>
+                                    <p class="small text-muted mb-0 mt-1">Veja se a conta cabe no seu bolso nos próximos meses.</p>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form id="form-simulacao" onsubmit="realizarSimulacao(event)">
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-medium">Valor Total da Compra/Receita (R$)</label>
+                                            <input type="number" class="form-control bg-light border-0" id="sim-valor" step="0.01" min="0.01" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-medium">Quantidade de Parcelas</label>
+                                            <input type="number" class="form-control bg-light border-0" id="sim-parcelas" min="1" value="1" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label text-muted small fw-medium">Mês Inicial</label>
+                                            <input type="month" class="form-control bg-light border-0" id="sim-mes-inicio" required>
+                                        </div>
+                                        <div class="mb-4">
+                                            <label class="form-label text-muted small fw-medium">Tipo</label>
+                                            <select class="form-select bg-light border-0" id="sim-tipo" required>
+                                                <option value="despesa" selected>Despesa (Vou Pagar)</option>
+                                                <option value="receita">Receita (Vou Receber)</option>
+                                            </select>
+                                        </div>
+                                        <button type="submit" class="btn btn-primary w-100 py-2 fw-bold shadow-sm">Simular Projeção</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-8">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-bar-chart-alt-2 text-primary'></i> Resultado Projetado</h5>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive">
+                                        <table class="table table-hover align-middle mb-0 text-center">
+                                            <thead class="table-light text-muted small text-uppercase">
+                                                <tr>
+                                                    <th>Mês</th>
+                                                    <th>Saldo Base Estimado</th>
+                                                    <th>Valor da Parcela</th>
+                                                    <th>Novo Saldo</th>
+                                                    <th>Situação</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="simulacao-resultados">
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-5 text-muted">
+                                                        <i class='bx bx-info-circle fs-3 d-block mb-2'></i>
+                                                        Preencha os dados e clique em "Simular Projeção" para visualizar.
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
                         </div>
