@@ -538,7 +538,10 @@ function excluirCategoria(id) {
     });
 }
 
-// --- EXTRATO & ROVER ---
+// ===============================================
+// EXTRATO & ROVER & FILTROS
+// ===============================================
+
 function renderizarRover() {
     const lista = document.getElementById('rover-lista');
     if(!lista) return;
@@ -584,12 +587,53 @@ function mudarTipoExtrato(tipo) {
     document.getElementById('btn-tab-despesa').classList.toggle('active', tipo === 'despesa');
     document.getElementById('btn-tab-receita').classList.toggle('active', tipo === 'receita');
     document.getElementById('titulo-lista-mes').textContent = `${tipo === 'despesa' ? 'Despesas' : 'Receitas'} do Mês`;
+    
+    preencherFiltrosExtrato();
     renderizarTabela();
+}
+
+function preencherFiltrosExtrato() {
+    // Populando Categorias Baseado no Tipo Selecionado
+    const selectCat = document.getElementById('filtro-categoria');
+    if (selectCat) {
+        selectCat.innerHTML = '<option value="">Todas</option>';
+        todasCategorias.filter(c => c.categoria === filtroTipoExtrato).forEach(c => {
+            selectCat.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+        });
+    }
+
+    // Populando Formas de Pagamento
+    const selectFp = document.getElementById('filtro-forma-pag');
+    if (selectFp) {
+        selectFp.innerHTML = '<option value="">Todas</option>';
+        const formasPadrao = ['Pix', 'Cartão Débito', 'Dinheiro', 'Transferência Bancária'];
+        formasPadrao.forEach(f => {
+            selectFp.innerHTML += `<option value="${f}">${f}</option>`;
+        });
+        
+        // Adiciona individualmente os cartões cadastrados
+        if (filtroTipoExtrato === 'despesa') {
+            todosCartoes.forEach(c => {
+                selectFp.innerHTML += `<option value="${c.nome}">💳 ${c.nome} (Cartão)</option>`;
+            });
+        }
+    }
+    
+    // Reseta Valores Digitados Anteriormente
+    if(document.getElementById('filtro-descricao')) document.getElementById('filtro-descricao').value = '';
+    if(document.getElementById('filtro-vencimento')) document.getElementById('filtro-vencimento').value = '';
+    if(document.getElementById('filtro-status')) document.getElementById('filtro-status').value = '';
 }
 
 async function loadParcelas() {
     const res = await fetch(`${API_BASE_URL}/parcelas?mes=${mesAtualExtrato}`);
     parcelasAtuais = await res.json();
+    
+    // Assegura de carregar os cadastros se der F5 direto na tela de extrato
+    if(todasCategorias.length === 0) await loadCategorias();
+    if(todosCartoes.length === 0) await loadCartoes();
+    
+    preencherFiltrosExtrato();
     renderizarTabela();
 }
 
@@ -602,10 +646,39 @@ function renderizarTabela() {
     document.getElementById('check-all').checked = false;
     atualizarBotaoLote();
 
-    const listaFiltrada = parcelasAtuais.filter(p => p.tipo === filtroTipoExtrato);
+    // Capturando valores dos filtros
+    const desc = document.getElementById('filtro-descricao')?.value.toLowerCase() || '';
+    const cat = document.getElementById('filtro-categoria')?.value || '';
+    const fp = document.getElementById('filtro-forma-pag')?.value || '';
+    const venc = document.getElementById('filtro-vencimento')?.value || '';
+    const st = document.getElementById('filtro-status')?.value || '';
+
+    // Filtragem em Memória
+    const listaFiltrada = parcelasAtuais.filter(p => {
+        if (p.tipo !== filtroTipoExtrato) return false;
+
+        if (desc && !p.descricao.toLowerCase().includes(desc)) return false;
+        if (cat && p.id_categoria.toString() !== cat) return false;
+        
+        let formaExibicao = p.forma_pagamento;
+        if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
+            formaExibicao = p.nome_cartao;
+        }
+        if (fp && formaExibicao !== fp) return false;
+        
+        if (venc && p.vencimento !== venc) return false;
+        
+        if (st) {
+            if (st === 'a_pagar' && p.status !== 'a_pagar') return false;
+            if (st === 'pago' && p.status !== 'pago' && p.status !== 'recebido') return false;
+            if (st === 'atrasado' && p.status !== 'atrasado') return false;
+        }
+
+        return true;
+    });
 
     if (listaFiltrada.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted">Nenhuma ${filtroTipoExtrato} encontrada neste mês.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">Nenhuma ${filtroTipoExtrato} encontrada para os filtros selecionados.</td></tr>`;
         return;
     }
 
@@ -620,11 +693,12 @@ function renderizarTabela() {
 
         let badge = '';
         let checkboxHtml = '';
+        let pStatusExibicao = p.status;
 
         if (p.tipo === 'receita') {
             checkboxHtml = `<span class="text-success fw-bold">●</span>`;
             badge = 'status-pago';
-            p.status = 'Recebido';
+            pStatusExibicao = 'Recebido';
         } else {
             if(p.status === 'pago') badge = 'status-pago';
             else if(p.status === 'atrasado') badge = 'status-atrasado';
@@ -635,16 +709,24 @@ function renderizarTabela() {
                 : `<span class="text-success fw-bold">&#10003;</span>`;
         }
 
+        // Lógica visual da Forma de Pagamento
+        let formaPgtoHTML = p.forma_pagamento || '-';
+        if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
+            formaPgtoHTML = `<i class='bx bx-credit-card text-primary me-1'></i> <strong>${p.nome_cartao}</strong>`;
+        }
+
          row.innerHTML = `
             <td class="text-center">${checkboxHtml}</td>
             <td class="fw-medium text-dark">${p.descricao}</td>
             <td class="text-muted">${p.numero}</td>
             <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
             
+            <td class="text-muted small">${formaPgtoHTML}</td>
+            
             <td class="fw-bold">${formatarMoeda(p.valor)}</td>
             
             <td>${dataDisplay}</td>
-            <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
+            <td><span class="status-badge ${badge}">${pStatusExibicao.replace('_', ' ')}</span></td>
             <td class="text-end pe-4">
                 <div class="d-flex justify-content-end gap-2">
                     <button class="btn btn-primary btn-sm px-3" onclick="abrirModal(${indexOriginal})"><i class='bx bx-edit'></i> Editar</button>
@@ -657,10 +739,10 @@ function renderizarTabela() {
 
     const corTotal = filtroTipoExtrato === 'receita' ? 'text-success' : 'text-danger';
     
-    // AQUI: Usando formatarMoeda no footer da tabela
+    // Atualiza a soma da tabela baseada apenas no que está filtrado
     tfoot.innerHTML = `
         <tr>
-            <td colspan="4" class="text-end fw-bold text-dark">Total ${filtroTipoExtrato === 'receita' ? 'Receitas' : 'Despesas'}:</td>
+            <td colspan="5" class="text-end fw-bold text-dark">Total ${filtroTipoExtrato === 'receita' ? 'Receitas' : 'Despesas'}:</td>
             <td colspan="4" class="fw-bold fs-6 ${corTotal}">${formatarMoeda(totalFiltrado)}</td>
         </tr>
     `;

@@ -393,6 +393,38 @@
                                 <button id="btn-tab-despesa" class="btn btn-outline-danger btn-sm active px-4 rounded-pill fw-medium" onclick="mudarTipoExtrato('despesa')">Despesas</button>
                                 <button id="btn-tab-receita" class="btn btn-outline-success btn-sm px-4 rounded-pill fw-medium" onclick="mudarTipoExtrato('receita')">Receitas</button>
                             </div>
+
+                            <div class="row g-2 mt-3 pt-3 border-top align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label text-muted small fw-medium mb-1"><i class='bx bx-search'></i> Buscar Descrição</label>
+                                    <input type="text" class="form-control form-control-sm bg-light border-0" id="filtro-descricao" placeholder="Ex: Mercado..." oninput="renderizarTabela()">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label text-muted small fw-medium mb-1">Categoria</label>
+                                    <select class="form-select form-select-sm bg-light border-0" id="filtro-categoria" onchange="renderizarTabela()">
+                                        <option value="">Todas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label text-muted small fw-medium mb-1">Forma de Pagamento</label>
+                                    <select class="form-select form-select-sm bg-light border-0" id="filtro-forma-pag" onchange="renderizarTabela()">
+                                        <option value="">Todas</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label text-muted small fw-medium mb-1">Vencimento</label>
+                                    <input type="date" class="form-control form-control-sm bg-light border-0" id="filtro-vencimento" onchange="renderizarTabela()">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label text-muted small fw-medium mb-1">Status</label>
+                                    <select class="form-select form-select-sm bg-light border-0" id="filtro-status" onchange="renderizarTabela()">
+                                        <option value="">Todos</option>
+                                        <option value="a_pagar">A Pagar / Receber</option>
+                                        <option value="pago">Pago / Recebido</option>
+                                        <option value="atrasado">Atrasado</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -410,7 +442,7 @@
                                             <th>Descrição</th>
                                             <th>Parc.</th>
                                             <th>Categoria</th>
-                                            <th>Valor</th>
+                                            <th>Forma de Pag.</th> <th>Valor</th>
                                             <th>Vencimento</th>
                                             <th>Status</th>
                                             <th class="text-end pe-4"></th>

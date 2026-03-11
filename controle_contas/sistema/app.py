@@ -347,7 +347,8 @@ def listar_parcelas():
             "tipo": p.transacao.tipo_transacao,
             "categoria": p.transacao.tipo.nome if p.transacao.tipo else 'Geral',
             "id_categoria": p.transacao.id_tipo,
-            "forma_pagamento": p.transacao.forma_pagamento
+            "forma_pagamento": p.transacao.forma_pagamento,
+            "nome_cartao": p.transacao.cartao.nome if p.transacao.cartao else None  # ADICIONADO AQUI
         })
     return jsonify(lista)
 
