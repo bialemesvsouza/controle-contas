@@ -577,6 +577,35 @@ def excluir_transacao(id_transacao):
     db.session.commit()
     return jsonify({"mensagem": "Fluxo cancelado e parcelas excluídas com sucesso!"})
 
+@app.route('/reparcelar/<int:id_transacao>', methods=['POST'])
+@login_required
+def reparcelar_transacao(id_transacao):
+    transacao = Transacao.query.filter_by(id=id_transacao, id_usuario=current_user.id).first()
+    if not transacao:
+        return jsonify({"erro": "Transação não encontrada"}), 404
+    
+    dados = request.json
+    novas_datas = dados.get('datas_parcelas', [])
+    novos_valores = dados.get('valores_parcelas', [])
+    
+    if len(novas_datas) != len(novos_valores) or len(novas_datas) == 0:
+        return jsonify({"erro": "Dados inválidos para reparcelamento."}), 400
+        
+    soma_total = sum([float(v) for v in novos_valores])
+    
+    # Atualiza os dados da transação principal
+    transacao.valor_total = soma_total
+    transacao.qtd_parcelas = len(novos_valores)
+    
+    # Deleta as parcelas antigas (o cascade no SQLAlchemy pode fazer isso, mas aqui garantimos)
+    Parcela.query.filter_by(id_transacao=id_transacao).delete()
+    
+    # Cria as novas usando a função auxiliar que já existe
+    gerar_parcelas_customizadas(transacao, novas_datas, novos_valores)
+    
+    return jsonify({"mensagem": "Reparcelamento concluído com sucesso!"})
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

@@ -1584,3 +1584,213 @@ function excluirTodasParcelas(id_transacao) {
         }
     });
 }
+
+// ==========================================
+// LÓGICA DE REPARCELAMENTO (MODAL)
+// ==========================================
+let parcelasReparcelamento = [];
+
+function prepararReparcelar() {
+    const idParcela = document.getElementById('edit-id').value;
+    const p = parcelasAtuais.find(x => x.id == idParcela);
+    if (p) {
+        fecharModal(); // Fecha o modal de edição
+        abrirModalReparcelar(p.id_transacao);
+    }
+}
+
+async function abrirModalReparcelar(id_transacao) {
+    document.getElementById('reparcelar-id-transacao').value = id_transacao;
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/transacao/${id_transacao}/parcelas`);
+        if (!res.ok) throw new Error("Erro ao buscar parcelas");
+        
+        const parcelas = await res.json();
+        
+        // Pega a soma atual para colocar no Valor Total
+        let total = parcelas.reduce((acc, p) => acc + parseFloat(p.valor), 0);
+        document.getElementById('reparcelar-valor-total').value = formatarValorInput(total);
+        
+        // Copia os dados para a nossa variável de estado
+        parcelasReparcelamento = parcelas.map((p) => ({
+            valor: parseFloat(p.valor),
+            vencimento: p.vencimento
+        }));
+        
+        renderizarListaReparcelamento();
+        document.getElementById('modal-reparcelar').classList.remove('d-none');
+    } catch(e) {
+        showNotification("Erro ao carregar os dados para reparcelamento", "error");
+    }
+}
+
+function fecharModalReparcelar() {
+    document.getElementById('modal-reparcelar').classList.add('d-none');
+}
+
+function renderizarListaReparcelamento() {
+    const tbody = document.getElementById('lista-reparcelamento');
+    tbody.innerHTML = '';
+    
+    parcelasReparcelamento.forEach((p, i) => {
+        tbody.innerHTML += `
+            <tr>
+                <td class="text-muted fw-bold">${i + 1}</td>
+                <td>
+                    <input type="text" class="form-control form-control-sm text-center fw-bold input-rep-valor" value="${formatarValorInput(p.valor)}" oninput="mascaraMilhar(event); atualizarValorReparcelamento(${i}, this.value); calcularSomaReparcelamento()">
+                </td>
+                <td>
+                    <input type="date" class="form-control form-control-sm text-center input-rep-data" value="${p.vencimento}" onchange="atualizarDataReparcelamento(${i}, this.value)">
+                </td>
+                <td>
+                    <div class="btn-group btn-group-sm shadow-sm" role="group">
+                        <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaReparcelamento(${i}, 'M')" title="Avançar 1 Mês"> M</button>
+                        <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaReparcelamento(${i}, 'A')" title="Avançar 1 Ano"> A</button>
+                        <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaReparcelamento(${i}, '=')" title="Copiar p/ Baixo"> = </button>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger py-0 px-2 fs-6" onclick="removerParcelaReparcelamento(${i})"><i class='bx bx-trash'></i></button>
+                </td>
+            </tr>
+        `;
+    });
+    calcularSomaReparcelamento();
+}
+
+function atualizarValorReparcelamento(index, valStr) {
+    parcelasReparcelamento[index].valor = limparFormatacao(valStr) || 0;
+}
+
+function atualizarDataReparcelamento(index, val) {
+    parcelasReparcelamento[index].vencimento = val;
+}
+
+function adicionarParcelaReparcelamento() {
+    let nextDate = new Date().toISOString().split('T')[0];
+    
+    // Se já tiver parcelas, sugere a data como 1 mês após a última
+    if (parcelasReparcelamento.length > 0) {
+        let lastDate = parcelasReparcelamento[parcelasReparcelamento.length - 1].vencimento;
+        if (lastDate) {
+            let [ano, mes, dia] = lastDate.split('-').map(Number);
+            let nd = new Date(ano, mes, dia); // Mes avança sozinho porque o JS entende mes 0-11
+            nextDate = nd.toISOString().split('T')[0];
+        }
+    }
+    
+    parcelasReparcelamento.push({ valor: 0, vencimento: nextDate });
+    recalcularTodasParcelasReparcelamento();
+}
+
+function removerParcelaReparcelamento(index) {
+    if (parcelasReparcelamento.length <= 1) {
+        showNotification("A transação precisa ter pelo menos uma parcela.", "error");
+        return;
+    }
+    parcelasReparcelamento.splice(index, 1);
+    recalcularTodasParcelasReparcelamento();
+}
+
+function recalcularTodasParcelasReparcelamento() {
+    let totalStr = document.getElementById('reparcelar-valor-total').value;
+    let total = limparFormatacao(totalStr);
+    let qtd = parcelasReparcelamento.length;
+    
+    if (qtd > 0 && total > 0) {
+        let valorBase = total / qtd;
+        let totalDistribuido = 0;
+        
+        for (let i = 0; i < qtd; i++) {
+            let v = Number(valorBase.toFixed(2));
+            if (i === qtd - 1) {
+                v = Number((total - totalDistribuido).toFixed(2)); // Última tira a diferença de centavos
+            }
+            totalDistribuido += v;
+            parcelasReparcelamento[i].valor = v;
+        }
+    }
+    renderizarListaReparcelamento();
+}
+
+function calcularSomaReparcelamento() {
+    let totalStr = document.getElementById('reparcelar-valor-total').value;
+    let total = limparFormatacao(totalStr);
+    let soma = 0;
+    
+    document.querySelectorAll('.input-rep-valor').forEach(inp => {
+        soma += limparFormatacao(inp.value) || 0;
+    });
+    
+    let dif = total - soma;
+    document.getElementById('reparcelar-soma').textContent = formatarMoeda(soma);
+    document.getElementById('reparcelar-diferenca').textContent = formatarMoeda(Math.abs(dif));
+    
+    if (Math.abs(dif) > 0.01) {
+        document.getElementById('reparcelar-soma').className = 'text-danger fw-bold';
+        document.getElementById('reparcelar-diferenca').className = 'text-danger fw-bold';
+    } else {
+        document.getElementById('reparcelar-soma').className = 'text-primary fw-bold';
+        document.getElementById('reparcelar-diferenca').className = 'text-success fw-bold';
+    }
+}
+
+function aplicarRecorrenciaReparcelamento(indexBase, tipo) {
+    const dataBaseVal = parcelasReparcelamento[indexBase].vencimento;
+    if (!dataBaseVal) {
+        showNotification('Preencha a data base antes de replicar.', 'error');
+        return;
+    }
+
+    const [anoBase, mesBase, diaBase] = dataBaseVal.split('-').map(Number);
+
+    for (let i = indexBase + 1; i < parcelasReparcelamento.length; i++) {
+        if (tipo === '=') {
+            parcelasReparcelamento[i].vencimento = dataBaseVal;
+        } else {
+            let novaData = new Date(anoBase, mesBase - 1, diaBase);
+            let delta = i - indexBase; 
+
+            if (tipo === 'M') novaData.setMonth(novaData.getMonth() + delta);
+            if (tipo === 'A') novaData.setFullYear(novaData.getFullYear() + delta);
+
+            if (novaData.getDate() !== diaBase) novaData.setDate(0);
+
+            const anoIso = novaData.getFullYear();
+            const mesIso = String(novaData.getMonth() + 1).padStart(2, '0');
+            const diaIso = String(novaData.getDate()).padStart(2, '0');
+
+            parcelasReparcelamento[i].vencimento = `${anoIso}-${mesIso}-${diaIso}`;
+        }
+    }
+    renderizarListaReparcelamento();
+}
+
+function salvarReparcelamento() {
+    let totalStr = document.getElementById('reparcelar-valor-total').value;
+    let total = limparFormatacao(totalStr);
+    let soma = 0;
+    
+    parcelasReparcelamento.forEach(p => soma += p.valor);
+    
+    if (Math.abs(total - soma) > 0.01) {
+        showNotification("A soma das parcelas deve ser igual ao Valor Total.", "error");
+        return;
+    }
+    if (parcelasReparcelamento.some(p => !p.vencimento)) {
+        showNotification("Preencha as datas de todas as parcelas.", "error");
+        return;
+    }
+    
+    const id_transacao = document.getElementById('reparcelar-id-transacao').value;
+    const datas = parcelasReparcelamento.map(p => p.vencimento);
+    const valores = parcelasReparcelamento.map(p => p.valor);
+    
+    doPost(`/reparcelar/${id_transacao}`, { datas_parcelas: datas, valores_parcelas: valores }, (data) => {
+        showNotification(data.mensagem, 'success');
+        fecharModalReparcelar();
+        loadParcelas();
+        loadDashboard();
+        carregarDadosExtrasDashboard();
+    });
+}
