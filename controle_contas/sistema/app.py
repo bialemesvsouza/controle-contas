@@ -352,6 +352,7 @@ def listar_parcelas():
             "tipo": p.transacao.tipo_transacao,
             "categoria": p.transacao.tipo.nome if p.transacao.tipo else 'Geral',
             "id_categoria": p.transacao.id_tipo,
+            "id_transacao": p.transacao.id,
             "forma_pagamento": p.transacao.forma_pagamento,
             "nome_cartao": p.transacao.cartao.nome if p.transacao.cartao else None  # ADICIONADO AQUI
         })
@@ -544,6 +545,37 @@ def dashboard_extras():
         "meses_futuros": meses_futuros,
         "pendentes": pendentes
     })
+
+@app.route('/api/transacao/<int:id_transacao>/parcelas', methods=['GET'])
+@login_required
+def listar_parcelas_transacao(id_transacao):
+    transacao = Transacao.query.filter_by(id=id_transacao, id_usuario=current_user.id).first()
+    if not transacao:
+        return jsonify({"erro": "Transação não encontrada"}), 404
+    
+    parcelas = Parcela.query.filter_by(id_transacao=id_transacao).order_by(Parcela.numero_parcela).all()
+    lista = []
+    for p in parcelas:
+        lista.append({
+            "id": p.id,
+            "numero_parcela": p.numero_parcela,
+            "qtd_parcelas": transacao.qtd_parcelas,
+            "valor": p.valor,
+            "vencimento": str(p.vencimento),
+            "status": p.status
+        })
+    return jsonify(lista)
+
+@app.route('/excluir_transacao/<int:id_transacao>', methods=['DELETE'])
+@login_required
+def excluir_transacao(id_transacao):
+    transacao = Transacao.query.filter_by(id=id_transacao, id_usuario=current_user.id).first()
+    if not transacao:
+        return jsonify({"erro": "Transação não encontrada"}), 404
+    
+    db.session.delete(transacao)
+    db.session.commit()
+    return jsonify({"mensagem": "Fluxo cancelado e parcelas excluídas com sucesso!"})
 
 if __name__ == '__main__':
     with app.app_context():

@@ -729,6 +729,37 @@
         </div>
     </div>
 
+    <div id="modal-exclusao-lote" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center;">
+        <div class="card border-0 shadow-lg rounded-4 w-100 mx-3" style="max-width: 650px;">
+            <div class="card-header border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center rounded-top-4" style="background-color: #0C243C;">
+                <h5 class="fw-bold mb-0 text-white">Cancelar Fluxo de Caixa</h5>
+                <button type="button" class="btn-close btn-close-white" onclick="fecharModalExclusaoLote()"></button>
+            </div>
+            <div class="card-body p-4 bg-body-tertiary">
+                <p class="text-muted small mb-3">Esta transação possui múltiplas parcelas. Selecione se deseja excluir apenas uma ou cancelar o fluxo inteiro.</p>
+                <div class="table-responsive bg-white border rounded shadow-sm mb-4" style="max-height: 350px; overflow-y: auto;">
+                    <table class="table table-sm table-hover align-middle mb-0 text-center text-sm">
+                        <thead class="table-light sticky-top text-muted">
+                            <tr>
+                                <th>Ação</th>
+                                <th>Data Vencimento</th>
+                                <th>Parcela</th>
+                                <th>Valor</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="lista-exclusao-parcelas">
+                            </tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button class="btn btn-warning fw-bold text-dark px-4 border-0" style="background-color: #D4AF37;" id="btn-excluir-todas-parcelas">Cancelar Fluxo</button>
+                    <button class="btn btn-dark px-4" onclick="fecharModalExclusaoLote()">Fechar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/script.js"></script>
 </body>
 </html>

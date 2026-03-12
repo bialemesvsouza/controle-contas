@@ -783,7 +783,7 @@ function renderizarTabela() {
             <td class="text-end pe-4">
                 <div class="d-flex justify-content-end gap-2">
                     <button class="btn btn-primary btn-sm px-3" onclick="abrirModal(${indexOriginal})"><i class='bx bx-edit'></i> Editar</button>
-                    <button class="btn btn-danger btn-sm px-3" onclick="excluirDireto(${p.id})"><i class='bx bx-trash'></i> Excluir</button>
+                    <button class="btn btn-danger btn-sm px-3" onclick="tentarExcluirParcela(${indexOriginal})"><i class='bx bx-trash'></i> Excluir</button>
                 </div>
             </td>
         `;
@@ -1478,5 +1478,109 @@ function renderizarPendentes(lista) {
             <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
         `;
         tbody.appendChild(tr);
+    });
+}
+
+// --- LÓGICA DO MODAL DE EXCLUSÃO EM LOTE (FLUXO) ---
+
+function tentarExcluirParcela(index) {
+    const p = parcelasAtuais[index];
+    const partesNum = p.numero.split('/');
+    const totalParcelas = parseInt(partesNum[1]);
+
+    // Se a transação tem mais de 1 parcela no total, abre o modal de fluxo
+    if (totalParcelas > 1) {
+        abrirModalExclusaoLote(p.id_transacao, p.descricao);
+    } else {
+        // Se é parcela única, segue o fluxo normal antigo
+        excluirDireto(p.id); 
+    }
+}
+
+async function abrirModalExclusaoLote(id_transacao, descricao) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/transacao/${id_transacao}/parcelas`);
+        if (!res.ok) throw new Error("Erro ao buscar parcelas");
+        const parcelas = await res.json();
+
+        // Se por acaso abriu o modal mas já deletou a última parcela, fecha
+        if(parcelas.length === 0) {
+            fecharModalExclusaoLote();
+            return;
+        }
+
+        const tbody = document.getElementById('lista-exclusao-parcelas');
+        tbody.innerHTML = '';
+
+        parcelas.forEach(p => {
+            const dataParts = p.vencimento.split('-');
+            const dataDisplay = `${dataParts[2]}/${dataParts[1]}/${dataParts[0]}`;
+            
+            let badge = p.status === 'atrasado' ? 'status-atrasado' : (p.status === 'pago' || p.status === 'recebido' ? 'status-pago' : 'status-a_pagar');
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>
+                        <button class="btn btn-sm btn-outline-danger py-0 px-2 fs-6" title="Excluir apenas esta" onclick="excluirParcelaUnicaModal(${p.id}, ${id_transacao}, '${descricao}')"><i class='bx bx-trash'></i></button>
+                    </td>
+                    <td class="fw-medium">${dataDisplay}</td>
+                    <td class="text-muted">${p.numero_parcela}/${p.qtd_parcelas}</td>
+                    <td class="fw-bold">${formatarMoeda(p.valor)}</td>
+                    <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
+                </tr>
+            `;
+        });
+
+        // Configura a ação do botão principal
+        document.getElementById('btn-excluir-todas-parcelas').onclick = () => excluirTodasParcelas(id_transacao);
+        document.getElementById('modal-exclusao-lote').classList.remove('d-none');
+    } catch(e) {
+        showNotification("Erro ao carregar os dados da transação", "error");
+    }
+}
+
+function fecharModalExclusaoLote() {
+    document.getElementById('modal-exclusao-lote').classList.add('d-none');
+}
+
+function excluirParcelaUnicaModal(idParcela, idTransacao, descricao) {
+    abrirConfirmacao("Excluir apenas esta parcela?", async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/excluir_parcela/${idParcela}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.mensagem, 'success');
+                // Recarrega o modal para tirar a excluída da lista
+                abrirModalExclusaoLote(idTransacao, descricao); 
+                // Atualiza o sistema por trás
+                loadParcelas();
+                loadDashboard();
+                carregarDadosExtrasDashboard();
+            } else {
+                showNotification(data.erro, 'error');
+            }
+        } catch(e) {
+            showNotification('Erro ao excluir', 'error');
+        }
+    });
+}
+
+function excluirTodasParcelas(id_transacao) {
+    abrirConfirmacao("Tem certeza que deseja Cancelar o Fluxo inteiro e apagar todas as parcelas deste lançamento?", async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/excluir_transacao/${id_transacao}`, { method: 'DELETE' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.mensagem, 'success');
+                fecharModalExclusaoLote();
+                loadParcelas();
+                loadDashboard();
+                carregarDadosExtrasDashboard();
+            } else {
+                showNotification(data.erro, 'error');
+            }
+        } catch(e) {
+            showNotification('Erro ao cancelar fluxo', 'error');
+        }
     });
 }
