@@ -1306,23 +1306,21 @@ async function realizarSimulacao(e) {
     
     const valorTotal = limparFormatacao(document.getElementById('sim-valor').value);
     const qtdParcelas = parseInt(document.getElementById('sim-parcelas').value);
-    const mesInicio = document.getElementById('sim-mes-inicio').value; // Formato "YYYY-MM"
+    const mesInicio = document.getElementById('sim-mes-inicio').value; 
     const tipo = document.getElementById('sim-tipo').value;
     
     const valorParcela = valorTotal / qtdParcelas;
     
     try {
-        // Busca TODAS as parcelas do usuário chamando o endpoint sem filtro de mês
         const res = await fetch(`${API_BASE_URL}/parcelas`);
         if (!res.ok) throw new Error('Erro ao buscar parcelas');
         
         const todasParcelas = await res.json();
         
-        // 1. Agrupar saldos cadastrados por mês
         const saldosPorMes = {};
         
         todasParcelas.forEach(p => {
-            const mesStr = p.vencimento.slice(0, 7); // Extrai "YYYY-MM"
+            const mesStr = p.vencimento.slice(0, 7); 
             if (!saldosPorMes[mesStr]) {
                 saldosPorMes[mesStr] = { receitas: 0, despesas: 0 };
             }
@@ -1330,22 +1328,21 @@ async function realizarSimulacao(e) {
             else saldosPorMes[mesStr].despesas += parseFloat(p.valor);
         });
         
-        // 2. Criar a lista de meses que serão afetados pela compra
         const mesesAfetados = [];
         const [anoInicial, mesInicial] = mesInicio.split('-').map(Number);
         
         for (let i = 0; i < qtdParcelas; i++) {
-            // Ao criar a data dessa forma, se o mês passar de 12 o JS ajusta o ano automaticamente
             const data = new Date(anoInicial, (mesInicial - 1) + i, 1);
             const anoFormatado = data.getFullYear();
             const mesFormatado = String(data.getMonth() + 1).padStart(2, '0');
             mesesAfetados.push(`${anoFormatado}-${mesFormatado}`);
         }
         
-        // 3. Montar a tabela de resultados
         const tbody = document.getElementById('simulacao-resultados');
         tbody.innerHTML = '';
         
+        let saldoFinalDaSimulacao = 0;
+
         mesesAfetados.forEach((mes) => {
             const dadosDoMes = saldosPorMes[mes] || { receitas: 0, despesas: 0 };
             const saldoBaseAtual = dadosDoMes.receitas - dadosDoMes.despesas;
@@ -1357,13 +1354,13 @@ async function realizarSimulacao(e) {
                 novoSaldo += valorParcela;
             }
             
-            // Formatando o nome do Mês para exibição (ex: Jan/2026)
+            saldoFinalDaSimulacao += novoSaldo;
+            
             const [a, m] = mes.split('-');
             const dataExibicao = new Date(a, m - 1, 10);
             let mesCapitalizado = dataExibicao.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', '');
             mesCapitalizado = mesCapitalizado.charAt(0).toUpperCase() + mesCapitalizado.slice(1);
             
-            // Decidindo cores e status baseados no Novo Saldo final
             let situacaoHtml = '';
             if (novoSaldo < 0) {
                 situacaoHtml = '<span class="badge bg-danger-subtle text-danger border border-danger p-2"><i class="bx bx-error"></i> Negativo</span>';
@@ -1387,6 +1384,15 @@ async function realizarSimulacao(e) {
             tbody.appendChild(tr);
         });
         
+        document.getElementById('simulacao-resumo').classList.remove('d-none');
+        document.getElementById('resumo-valor-total').textContent = formatarMoeda(valorTotal);
+        document.getElementById('resumo-qtd-parcelas').textContent = qtdParcelas + 'x';
+        document.getElementById('resumo-valor-parcela').textContent = formatarMoeda(valorParcela);
+        
+        const elSaldoFinal = document.getElementById('resumo-saldo-final');
+        elSaldoFinal.textContent = formatarMoeda(saldoFinalDaSimulacao);
+        elSaldoFinal.className = saldoFinalDaSimulacao < 0 ? 'text-danger fw-bold fs-6' : 'text-success fw-bold fs-6';
+        
     } catch (error) {
         console.error("Erro ao simular:", error);
         showNotification("Erro ao processar simulação", "error");
@@ -1395,13 +1401,11 @@ async function realizarSimulacao(e) {
 
 async function carregarDadosExtrasDashboard() {
     try {
-        // Agora chamamos a nossa nova rota super otimizada do Python
         const res = await fetch(`${API_BASE_URL}/api/dashboard/extras`);
         if (!res.ok) return;
         
         const dados = await res.json();
         
-        // Atualiza UI: Saldo Acumulado
         document.getElementById('dash-saldo-acumulado').textContent = formatarMoeda(dados.saldo_acumulado);
 
         // Renderiza Tabelas
@@ -1795,16 +1799,16 @@ function salvarReparcelamento() {
     });
 }
 function limparSimulacao() {
-    // 1. Reseta os campos do formulário
     document.getElementById('form-simulacao').reset();
     
-    // 2. Coloca novamente o mês atual no campo de data (para não ficar em branco)
     const inputMesInicio = document.getElementById('sim-mes-inicio');
     if(inputMesInicio) {
         inputMesInicio.value = new Date().toISOString().slice(0, 7);
     }
+
+    const resumo = document.getElementById('simulacao-resumo');
+    if (resumo) resumo.classList.add('d-none');
     
-    // 3. Limpa a tabela de resultados e volta para a mensagem padrão
     const tbody = document.getElementById('simulacao-resultados');
     tbody.innerHTML = `
         <tr>
