@@ -1794,3 +1794,24 @@ function salvarReparcelamento() {
         carregarDadosExtrasDashboard();
     });
 }
+function limparSimulacao() {
+    // 1. Reseta os campos do formulário
+    document.getElementById('form-simulacao').reset();
+    
+    // 2. Coloca novamente o mês atual no campo de data (para não ficar em branco)
+    const inputMesInicio = document.getElementById('sim-mes-inicio');
+    if(inputMesInicio) {
+        inputMesInicio.value = new Date().toISOString().slice(0, 7);
+    }
+    
+    // 3. Limpa a tabela de resultados e volta para a mensagem padrão
+    const tbody = document.getElementById('simulacao-resultados');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-5 text-muted">
+                <i class='bx bx-info-circle fs-3 d-block mb-2'></i>
+                Preencha os dados e clique em "Simular Projeção" para visualizar.
+            </td>
+        </tr>
+    `;
+}
