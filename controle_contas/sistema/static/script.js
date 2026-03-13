@@ -10,41 +10,34 @@ let filtroTipoExtrato = 'despesa';
 let todasCategorias = [];
 let todosCartoes = [];
 
-// Variáveis dos Gráficos
+// Variáveis dos Gráficos e Calendário
 let chartDespesas = null;
 let chartReceitas = null;
 let chartCartaoEspecifico = null;
+let mesAtualCalendario = new Date();
+let listaPendentesGlobal = [];
 
 function formatarMoeda(valor) {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(valor);
 }
 
-// --- FUNÇÕES DE MÁSCARA E FORMATAÇÃO ---
 function mascaraMilhar(event) {
     let input = event.target;
-    // Pega apenas números e a vírgula
     let valor = input.value.replace(/[^\d,]/g, '');
-    
-    // Garante que só tenha uma vírgula
     let partes = valor.split(',');
     if (partes.length > 2) {
         partes = [partes[0], partes.slice(1).join('')];
     }
-    
-    // Adiciona os pontos na casa do milhar (parte inteira)
     partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-    
     input.value = partes.join(',');
 }
 
 function limparFormatacao(valorFormatado) {
     if (!valorFormatado) return 0;
     if (typeof valorFormatado === 'number') return valorFormatado;
-    // Remove os pontos e troca a vírgula por ponto para o JavaScript conseguir calcular
     return parseFloat(valorFormatado.replace(/\./g, '').replace(',', '.')) || 0;
 }
 
-// NOVO: Converte um número de sistema (1000.5) para o visual do input (1.000,50)
 function formatarValorInput(valor) {
     let num = parseFloat(valor);
     if (isNaN(num)) return "0,00";
@@ -53,7 +46,6 @@ function formatarValorInput(valor) {
     partes[0] = partes[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
     return partes.join(',');
 }
-// --------------------------------
 
 document.addEventListener('DOMContentLoaded', function() {
     initDates();
@@ -94,14 +86,12 @@ function setupEventListeners() {
     document.getElementById('novo-cartao-form').addEventListener('submit', handleNovoCartao);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
     
-    // Listeners da Recuperação de Senha
     const recoverForm1 = document.getElementById('recover-form-1');
     if(recoverForm1) recoverForm1.addEventListener('submit', handleVerificarEmail);
     
     const recoverForm2 = document.getElementById('recover-form-2');
     if(recoverForm2) recoverForm2.addEventListener('submit', handleRedefinirSenha);
 
-    // Atualiza a tabela dinamicamente quando o valor total muda
     document.getElementById('transacao-valor').addEventListener('input', gerarCamposData);
 
     const formNovaTransacao = document.getElementById('nova-transacao-form');
@@ -119,14 +109,12 @@ function setupEventListeners() {
     }
 }
 
-// --- NAVEGAÇÃO ---
 function navegarPara(tela) {
     document.querySelector('.app-menubar').classList.remove('menu-aberto');
     document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
     const activeLink = document.querySelector(`[onclick="navegarPara('${tela}')"]`);
     if (activeLink) activeLink.classList.add('active');
 
-    // Esconde todas as telas e mostra só a correta
     document.querySelectorAll('.view-section').forEach(view => {
         view.classList.add('d-none');
         view.classList.remove('active');
@@ -138,7 +126,6 @@ function navegarPara(tela) {
         targetView.classList.add('active');
     }
 
-    // Atualiza o título da página
     const titulos = {
         'dashboard': 'Visão Geral',
         'extrato': 'Extrato Mensal',
@@ -149,27 +136,22 @@ function navegarPara(tela) {
     const titleElement = document.querySelector('.page-title');
     if(titleElement) titleElement.textContent = titulos[tela] || 'SmartGrana';
 
-    if(tela === 'dashboard') loadDashboard(), carregarDadosExtrasDashboard();
+    if(tela === 'dashboard') { loadDashboard(); carregarDadosExtrasDashboard(); }
     if(tela === 'extrato') loadParcelas();
-
     if(tela === 'novo' || tela === 'categorias') {
         loadCategorias(tela === 'categorias');
         loadCartoes();
     }
-    document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
 }
 
 // --- AUTH ---
 function toggleAuth(type) {
     document.getElementById('login-tab').classList.add('d-none');
     document.getElementById('register-tab').classList.add('d-none');
-    
     const recoverTab = document.getElementById('recover-tab');
     if(recoverTab) recoverTab.classList.add('d-none');
-    
     const authTabsNav = document.getElementById('auth-tabs-nav');
     if(authTabsNav) authTabsNav.classList.remove('d-none');
-
     const btnLogin = document.getElementById('tab-login-btn');
     const btnReg = document.getElementById('tab-register-btn');
 
@@ -199,7 +181,6 @@ function togglePassword(inputId, iconId) {
     const input = document.getElementById(inputId);
     const icon = document.getElementById(iconId);
     if (!input || !icon) return;
-    
     if (input.type === "password") {
         input.type = "text";
         icon.classList.replace('bx-hide', 'bx-show');
@@ -211,16 +192,12 @@ function togglePassword(inputId, iconId) {
 
 async function checkAuthStatus() {
     const userStored = localStorage.getItem('currentUser');
-    
-    // Se não tem nada no cache, já mostra o login direto
     if (!userStored) {
         mostrarTelaLogin();
         return;
     }
-
     try {
         const res = await fetch(`${API_BASE_URL}/api/tipos`);
-        
         if (res.ok) {
             currentUser = JSON.parse(userStored);
             showApp();
@@ -230,12 +207,10 @@ async function checkAuthStatus() {
             showNotification('Sua sessão expirou. Faça login novamente.', 'error');
         }
     } catch (e) {
-        // Erro de rede 
         mostrarTelaLogin();
     }
 }
 
-// Função auxiliar para evitar repetição de código
 function mostrarTelaLogin() {
     document.getElementById('auth-section').classList.remove('d-none-important');
     document.getElementById('app-nav').classList.add('d-none-important');
@@ -254,7 +229,6 @@ async function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('login-email').value;
     const p = document.getElementById('login-password').value;
-
     doPost('/login', {email: email, password: p}, (data) => {
         currentUser = { username: data.username };
         localStorage.setItem('currentUser', JSON.stringify(currentUser));
@@ -274,23 +248,19 @@ async function handleRegister(e) {
         showNotification('As senhas não coincidem!', 'error');
         return;
     }
-
     doPost('/register', {email: email, username: u, password: p}, (data) => {
         showNotification(data.mensagem);
         toggleAuth('login');
     });
 }
 
-// Fluxo de Recuperação de Senha
 async function handleVerificarEmail(e) {
     e.preventDefault();
     const email = document.getElementById('recover-search-email').value;
-
     doPost('/verificar_usuario', {email: email}, (data) => {
         if(data.existe) {
             document.getElementById('recover-found-user').value = data.username;
             document.getElementById('recover-found-email').value = data.email;
-            
             document.getElementById('recover-step-1').classList.add('d-none');
             document.getElementById('recover-step-2').classList.remove('d-none');
             showNotification('Usuário encontrado!', 'success');
@@ -308,7 +278,6 @@ async function handleRedefinirSenha(e) {
         showNotification('As novas senhas não coincidem!', 'error');
         return;
     }
-
     doPost('/atualizar_senha_direto', {email: email, password: p}, (data) => {
         showNotification(data.mensagem);
         document.getElementById('recover-form-1').reset();
@@ -329,26 +298,17 @@ async function loadDashboard() {
 
     try {
         const res = await fetch(`${API_BASE_URL}/dashboard?inicio=${inicio}&fim=${fim}`);
-
         if (res.ok) {
             const data = await res.json();
-
-            // Usando a nova função formatarMoeda
-            const elReceitas = document.getElementById('dash-total-receitas');
-            if(elReceitas) elReceitas.textContent = formatarMoeda(data.total_receitas);
-
-            const elDespesas = document.getElementById('dash-total-despesas');
-            if(elDespesas) elDespesas.textContent = formatarMoeda(data.total_despesas);
-
+            document.getElementById('dash-total-receitas').textContent = formatarMoeda(data.total_receitas);
+            document.getElementById('dash-total-despesas').textContent = formatarMoeda(data.total_despesas);
             renderizarGrafico('chart-despesas', 'despesa', data.grafico_despesas);
             renderizarGrafico('chart-receitas', 'receita', data.grafico_receitas);
 
             const saldo = data.total_receitas - data.total_despesas;
             const elBalanco = document.getElementById('dash-balanco');
-            if(elBalanco) {
-                elBalanco.textContent = formatarMoeda(saldo);
-                elBalanco.className = 'fw-bold mb-0 mt-1 ' + (saldo >= 0 ? 'text-success' : 'text-danger');
-            }
+            elBalanco.textContent = formatarMoeda(saldo);
+            elBalanco.className = 'fw-bold mb-0 mt-1 ' + (saldo >= 0 ? 'text-success' : 'text-danger');
 
             const selectCartao = document.getElementById('dash-card-select');
             if (selectCartao && selectCartao.options.length <= 1) {
@@ -358,9 +318,7 @@ async function loadDashboard() {
                 atualizarGraficoCartao();
             }
         }
-    } catch (error) {
-        console.error("Erro ao carregar dashboard:", error);
-    }
+    } catch (error) { console.error("Erro ao carregar dashboard:", error); }
 }
 
 function renderizarGrafico(canvasId, tipo, dados) {
@@ -384,11 +342,7 @@ function renderizarGrafico(canvasId, tipo, dados) {
         type: 'pie',
         data: {
             labels: labels,
-            datasets: [{
-                data: valores,
-                backgroundColor: coresBase,
-                borderWidth: 1
-            }]
+            datasets: [{ data: valores, backgroundColor: coresBase, borderWidth: 1 }]
         },
         options: {
             responsive: true,
@@ -400,9 +354,7 @@ function renderizarGrafico(canvasId, tipo, dados) {
                         label: function(context) {
                             let label = context.label || '';
                             if (label) label += ': ';
-                            const valor = context.raw;
-                            // Usando formatarMoeda no tooltip
-                            label += formatarMoeda(valor);
+                            label += formatarMoeda(context.raw);
                             return label;
                         }
                     }
@@ -411,11 +363,8 @@ function renderizarGrafico(canvasId, tipo, dados) {
         }
     };
 
-    if (tipo === 'despesa') {
-        chartDespesas = new Chart(ctx, config);
-    } else {
-        chartReceitas = new Chart(ctx, config);
-    }
+    if (tipo === 'despesa') chartDespesas = new Chart(ctx, config);
+    else chartReceitas = new Chart(ctx, config);
 }
 
 // --- CATEGORIAS E CARTÕES ---
@@ -426,10 +375,7 @@ async function loadCategorias(renderizarNaTela = false) {
             todasCategorias = await res.json();
             const tipoTransacaoAtual = document.getElementById('transacao-tipo').value;
             atualizarSelectCategorias(tipoTransacaoAtual);
-
-            if(renderizarNaTela) {
-                renderizarListaCategoriasGerenciamento();
-            }
+            if(renderizarNaTela) renderizarListaCategoriasGerenciamento();
         }
     } catch(e) { console.error("Erro ao carregar categorias", e); }
 }
@@ -451,7 +397,6 @@ function renderizarSelectCartoes() {
     const firstOption = select.options[0];
     select.innerHTML = '';
     select.appendChild(firstOption);
-
     todosCartoes.forEach(c => {
         const option = document.createElement('option');
         option.value = c.id;
@@ -464,7 +409,6 @@ function renderizarListaCartoesGerenciamento() {
     const container = document.getElementById('lista-cartoes-cadastrados');
     if(!container) return;
     container.innerHTML = '';
-
     todosCartoes.forEach(c => {
         const item = document.createElement('div');
         item.className = 'p-3 bg-light rounded-3 d-flex justify-content-between align-items-center mb-2';
@@ -479,7 +423,6 @@ function renderizarListaCartoesGerenciamento() {
 async function handleNovoCartao(e) {
     e.preventDefault();
     const nome = document.getElementById('cartao-nome').value;
-
     doPost('/api/cartoes', { nome: nome }, (data) => {
         showNotification(data.mensagem);
         document.getElementById('cartao-nome').value = '';
@@ -519,11 +462,27 @@ function toggleSelectCartao() {
     }
 }
 
+function toggleSelectCartaoEdit() {
+    const forma = document.getElementById('edit-forma-pagamento').value;
+    const divCartao = document.getElementById('div-select-cartao-edit');
+    const inputCartao = document.getElementById('edit-cartao-id');
+
+    if (forma === 'Cartão Crédito') {
+        divCartao.classList.remove('d-none');
+        if(inputCartao) inputCartao.setAttribute('required', 'required');
+    } else {
+        divCartao.classList.add('d-none');
+        if(inputCartao) {
+            inputCartao.removeAttribute('required');
+            inputCartao.value = "";
+        }
+    }
+}
+
 function atualizarSelectCategorias(tipoSelecionado) {
     const select = document.getElementById('transacao-tipo-categoria');
     if(!select) return;
     select.innerHTML = '';
-
     const filtradas = todasCategorias.filter(c => c.categoria === tipoSelecionado);
 
     if (filtradas.length === 0) {
@@ -556,7 +515,6 @@ function renderizarListaCategoriasGerenciamento() {
             <span class="fw-medium text-dark">${cat.nome}</span>
             <button class="btn btn-sm btn-outline-danger border-0 rounded-circle p-1" style="line-height: 1;" onclick="excluirCategoria(${cat.id})"><i class='bx bx-x fs-5'></i></button>
         `;
-
         if(cat.categoria === 'despesa') containerDespesa.appendChild(item);
         else containerReceita.appendChild(item);
     });
@@ -566,7 +524,6 @@ async function handleNovaCategoria(e) {
     e.preventDefault();
     const nome = document.getElementById('cat-nome').value;
     const tipo = document.getElementById('cat-tipo').value;
-
     doPost('/api/tipos', { nome: nome, categoria: tipo }, (data) => {
         showNotification(data.mensagem);
         document.getElementById('cat-nome').value = '';
@@ -585,9 +542,7 @@ function excluirCategoria(id) {
             } else {
                 showNotification(data.erro, 'error');
             }
-        } catch(e) {
-            showNotification('Erro ao excluir', 'error');
-        }
+        } catch(e) { showNotification('Erro ao excluir', 'error'); }
     });
 }
 
@@ -646,7 +601,6 @@ function mudarTipoExtrato(tipo) {
 }
 
 function preencherFiltrosExtrato() {
-    // Populando Categorias Baseado no Tipo Selecionado
     const selectCat = document.getElementById('filtro-categoria');
     if (selectCat) {
         selectCat.innerHTML = '<option value="">Todas</option>';
@@ -655,7 +609,6 @@ function preencherFiltrosExtrato() {
         });
     }
 
-    // Populando Formas de Pagamento
     const selectFp = document.getElementById('filtro-forma-pag');
     if (selectFp) {
         selectFp.innerHTML = '<option value="">Todas</option>';
@@ -663,8 +616,6 @@ function preencherFiltrosExtrato() {
         formasPadrao.forEach(f => {
             selectFp.innerHTML += `<option value="${f}">${f}</option>`;
         });
-        
-        // Adiciona individualmente os cartões cadastrados
         if (filtroTipoExtrato === 'despesa') {
             todosCartoes.forEach(c => {
                 selectFp.innerHTML += `<option value="${c.nome}">💳 ${c.nome} (Cartão)</option>`;
@@ -672,17 +623,27 @@ function preencherFiltrosExtrato() {
         }
     }
     
-    // Reseta Valores Digitados Anteriormente
+    if(document.getElementById('filtro-status')) {
+        const selectSt = document.getElementById('filtro-status');
+        selectSt.innerHTML = '<option value="">Todos</option>';
+        if(filtroTipoExtrato === 'despesa') {
+            selectSt.innerHTML += `<option value="a_pagar">A Pagar</option>
+                                   <option value="pago">Pago</option>
+                                   <option value="atrasado">Atrasado</option>`;
+        } else {
+            selectSt.innerHTML += `<option value="a_receber">A Receber</option>
+                                   <option value="recebido">Recebido</option>`;
+        }
+    }
+
     if(document.getElementById('filtro-descricao')) document.getElementById('filtro-descricao').value = '';
     if(document.getElementById('filtro-vencimento')) document.getElementById('filtro-vencimento').value = '';
-    if(document.getElementById('filtro-status')) document.getElementById('filtro-status').value = '';
 }
 
 async function loadParcelas() {
     const res = await fetch(`${API_BASE_URL}/parcelas?mes=${mesAtualExtrato}`);
     parcelasAtuais = await res.json();
     
-    // Assegura de carregar os cadastros se der F5 direto na tela de extrato
     if(todasCategorias.length === 0) await loadCategorias();
     if(todosCartoes.length === 0) await loadCartoes();
     
@@ -699,17 +660,14 @@ function renderizarTabela() {
     document.getElementById('check-all').checked = false;
     atualizarBotaoLote();
 
-    // Capturando valores dos filtros
     const desc = document.getElementById('filtro-descricao')?.value.toLowerCase() || '';
     const cat = document.getElementById('filtro-categoria')?.value || '';
     const fp = document.getElementById('filtro-forma-pag')?.value || '';
     const venc = document.getElementById('filtro-vencimento')?.value || '';
     const st = document.getElementById('filtro-status')?.value || '';
 
-    // Filtragem em Memória
     const listaFiltrada = parcelasAtuais.filter(p => {
         if (p.tipo !== filtroTipoExtrato) return false;
-
         if (desc && !p.descricao.toLowerCase().includes(desc)) return false;
         if (cat && p.id_categoria.toString() !== cat) return false;
         
@@ -718,15 +676,15 @@ function renderizarTabela() {
             formaExibicao = p.nome_cartao;
         }
         if (fp && formaExibicao !== fp) return false;
-        
         if (venc && p.vencimento !== venc) return false;
         
         if (st) {
             if (st === 'a_pagar' && p.status !== 'a_pagar') return false;
-            if (st === 'pago' && p.status !== 'pago' && p.status !== 'recebido') return false;
+            if (st === 'pago' && p.status !== 'pago') return false;
             if (st === 'atrasado' && p.status !== 'atrasado') return false;
+            if (st === 'a_receber' && p.status !== 'a_receber') return false;
+            if (st === 'recebido' && p.status !== 'recebido') return false;
         }
-
         return true;
     });
 
@@ -746,23 +704,30 @@ function renderizarTabela() {
 
         let badge = '';
         let checkboxHtml = '';
-        let pStatusExibicao = p.status;
+        let pStatusExibicao = '';
 
         if (p.tipo === 'receita') {
-            checkboxHtml = `<span class="text-success fw-bold">●</span>`;
-            badge = 'status-pago';
-            pStatusExibicao = 'Recebido';
+            if (p.status === 'recebido') {
+                checkboxHtml = `<span class="text-success fw-bold">●</span>`;
+                badge = 'status-pago';
+                pStatusExibicao = 'Recebido';
+            } else {
+                checkboxHtml = `<input type="checkbox" class="form-check-input parcela-checkbox" value="${p.id}" onchange="atualizarBotaoLote()">`;
+                badge = 'status-a_receber';
+                pStatusExibicao = 'A Receber';
+            }
         } else {
             if(p.status === 'pago') badge = 'status-pago';
             else if(p.status === 'atrasado') badge = 'status-atrasado';
             else badge = 'status-a_pagar';
+
+            pStatusExibicao = p.status.replace('_', ' ');
 
             checkboxHtml = p.status !== 'pago'
                 ? `<input type="checkbox" class="form-check-input parcela-checkbox" value="${p.id}" onchange="atualizarBotaoLote()">`
                 : `<span class="text-success fw-bold">&#10003;</span>`;
         }
 
-        // Lógica visual da Forma de Pagamento
         let formaPgtoHTML = p.forma_pagamento || '-';
         if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
             formaPgtoHTML = `<i class='bx bx-credit-card text-primary me-1'></i> <strong>${p.nome_cartao}</strong>`;
@@ -773,13 +738,10 @@ function renderizarTabela() {
             <td class="fw-medium text-dark">${p.descricao}</td>
             <td class="text-muted">${p.numero}</td>
             <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
-            
             <td class="text-muted small">${formaPgtoHTML}</td>
-            
             <td class="fw-bold">${formatarMoeda(p.valor)}</td>
-            
             <td>${dataDisplay}</td>
-            <td><span class="status-badge ${badge}">${pStatusExibicao.replace('_', ' ')}</span></td>
+            <td><span class="status-badge ${badge}">${pStatusExibicao}</span></td>
             <td class="text-end pe-4">
                 <div class="d-flex justify-content-end gap-2">
                     <button class="btn btn-primary btn-sm px-3" onclick="abrirModal(${indexOriginal})"><i class='bx bx-edit'></i> Editar</button>
@@ -791,8 +753,6 @@ function renderizarTabela() {
     });
 
     const corTotal = filtroTipoExtrato === 'receita' ? 'text-success' : 'text-danger';
-    
-    // Atualiza a soma da tabela baseada apenas no que está filtrado
     tfoot.innerHTML = `
         <tr>
             <td colspan="5" class="text-end fw-bold text-dark">Total ${filtroTipoExtrato === 'receita' ? 'Receitas' : 'Despesas'}:</td>
@@ -802,7 +762,7 @@ function renderizarTabela() {
 }
 
 // ==========================================
-// LÓGICA DE CÁLCULO E TABELA DE PARCELAS (NOVO)
+// LÓGICA DE CÁLCULO E TABELA DE PARCELAS 
 // ==========================================
 function gerarCamposData() {
     const inputQtd = document.getElementById('transacao-parcelas');
@@ -814,14 +774,13 @@ function gerarCamposData() {
     const container = document.getElementById('container-datas');
     container.innerHTML = '';
 
-    // Calcula o valor base por parcela
     let valorBase = valorTotal / qtd;
     let somaArr = [];
     let totalDistribuido = 0;
 
     for(let i = 0; i < qtd; i++) {
         let v = Number(valorBase.toFixed(2));
-        if(i === qtd - 1) { // A última parcela tira a diferença de centavos
+        if(i === qtd - 1) { 
             v = Number((valorTotal - totalDistribuido).toFixed(2));
         }
         totalDistribuido += v;
@@ -862,7 +821,6 @@ function recalcularValoresAbaixo(indexAlterado) {
     const inputs = document.querySelectorAll('.input-valor-parcela');
     const valorTotal = limparFormatacao(document.getElementById('transacao-valor').value);
 
-    // Soma tudo que está "acima" e a própria parcela alterada
     let somaFixada = 0;
     for(let i = 0; i <= indexAlterado; i++) {
         somaFixada += limparFormatacao(inputs[i].value) || 0;
@@ -877,19 +835,15 @@ function recalcularValoresAbaixo(indexAlterado) {
 
         for(let i = indexAlterado + 1; i < inputs.length; i++) {
             let v = Number(valorBase.toFixed(2));
-
             if (i === inputs.length - 1 && restante > 0) {
                 v = Number((restante - totalDistribuido).toFixed(2));
             } else if (restante <= 0) {
                 v = 0; 
             }
-
             totalDistribuido += v;
-            // AQUI ADICIONEI O formatarValorInput PARA PREENCHER COM PONTOS
             inputs[i].value = formatarValorInput(v);
         }
     }
-
     calcularSomaParcelas();
 }
 
@@ -921,7 +875,6 @@ function calcularSomaParcelas() {
     }
 }
 
-// Botões individuais por linha
 function aplicarRecorrenciaLinha(indexBase, tipo) {
     const inputs = document.querySelectorAll('.input-data-parcela');
     if (inputs.length === 0) return;
@@ -980,7 +933,6 @@ async function handleNovaTransacao(e) {
         showNotification('Selecione uma categoria válida', 'error');
         return;
     }
-
     if(formaPagamento === 'Cartão Crédito' && !idCartao) {
         showNotification('Selecione qual cartão foi utilizado', 'error');
         return;
@@ -1050,49 +1002,31 @@ function abrirModal(index) {
     document.getElementById('edit-valor').value = formatarValorInput(p.valor);
     document.getElementById('edit-vencimento').value = p.vencimento;
 
-   
-    const selectFormaPagamento = document.getElementById('edit-forma-pagamento');
-    const selectCartao = document.getElementById('edit-cartao-id');
-    
-    if (selectFormaPagamento) {
-        selectFormaPagamento.value = p.forma_pagamento || 'Pix';
-    }
-
-    if (selectCartao) {
-        selectCartao.innerHTML = '<option value="" disabled selected>Escolha um cartão...</option>';
-        todosCartoes.forEach(c => {
-            const option = document.createElement('option');
-            option.value = c.id;
-            option.textContent = c.nome;
-            selectCartao.appendChild(option);
-        });
-        
-        // Se for cartão de crédito, encontra o ID dele pelo nome retornado no Extrato
-        if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
-            const cartaoEncontrado = todosCartoes.find(c => c.nome === p.nome_cartao);
-            if (cartaoEncontrado) {
-                selectCartao.value = cartaoEncontrado.id;
-            }
-        }
-    }
-    toggleSelectCartaoEdit(); // Atualiza a exibição (oculta/mostra) do select do cartão
-
     const selectStatus = document.getElementById('edit-status');
     const divStatus = selectStatus.closest('.form-group');
     const labelVencimento = document.getElementById('edit-vencimento').closest('.form-group').querySelector('label');
 
+    divStatus.classList.remove('d-none'); 
+    selectStatus.innerHTML = '';
+    
     if (p.tipo === 'receita') {
-        divStatus.classList.add('d-none');
         labelVencimento.textContent = 'Data de Recebimento';
+        selectStatus.innerHTML = `
+            <option value="a_receber">A Receber</option>
+            <option value="recebido">Recebido</option>
+        `;
     } else {
-        divStatus.classList.remove('d-none');
-        selectStatus.value = p.status;
         labelVencimento.textContent = 'Vencimento';
+        selectStatus.innerHTML = `
+            <option value="a_pagar">A Pagar</option>
+            <option value="pago">Pago</option>
+            <option value="atrasado">Atrasado</option>
+        `;
     }
+    selectStatus.value = p.status;
 
     const selectCategoria = document.getElementById('edit-categoria');
     selectCategoria.innerHTML = '';
-
     const categoriasCompativeis = todasCategorias.filter(c => c.categoria === p.tipo);
 
     if (categoriasCompativeis.length === 0) {
@@ -1109,6 +1043,31 @@ function abrirModal(index) {
         });
     }
 
+    const selectFormaPagamento = document.getElementById('edit-forma-pagamento');
+    const selectCartao = document.getElementById('edit-cartao-id');
+    
+    if (selectFormaPagamento) {
+        selectFormaPagamento.value = p.forma_pagamento || 'Pix';
+    }
+
+    if (selectCartao) {
+        selectCartao.innerHTML = '<option value="" disabled selected>Escolha um cartão...</option>';
+        todosCartoes.forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.id;
+            option.textContent = c.nome;
+            selectCartao.appendChild(option);
+        });
+        
+        if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
+            const cartaoEncontrado = todosCartoes.find(c => c.nome === p.nome_cartao);
+            if (cartaoEncontrado) {
+                selectCartao.value = cartaoEncontrado.id;
+            }
+        }
+    }
+    toggleSelectCartaoEdit();
+
     document.getElementById('modal-edicao').classList.remove('d-none');
 }
 
@@ -1119,18 +1078,10 @@ function fecharModal() {
 async function salvarEdicao(e) {
     e.preventDefault();
     const id = document.getElementById('edit-id').value;
-    const itemOriginal = parcelasAtuais.find(p => p.id == id);
-
-    let statusParaEnviar = document.getElementById('edit-status').value;
-
-    if (itemOriginal && itemOriginal.tipo === 'receita') {
-        statusParaEnviar = 'recebido';
-    }
 
     const formaPagamento = document.getElementById('edit-forma-pagamento').value;
     const idCartao = document.getElementById('edit-cartao-id').value;
 
-    // Impede de salvar se o usuário escolheu "Cartão Crédito" mas não selecionou qual cartão
     if (formaPagamento === 'Cartão Crédito' && !idCartao) {
         showNotification('Selecione qual cartão foi utilizado', 'error');
         return;
@@ -1140,7 +1091,7 @@ async function salvarEdicao(e) {
         descricao: document.getElementById('edit-descricao').value,
         valor: limparFormatacao(document.getElementById('edit-valor').value),
         vencimento: document.getElementById('edit-vencimento').value,
-        status: statusParaEnviar,
+        status: document.getElementById('edit-status').value,
         id_categoria: document.getElementById('edit-categoria').value,
         forma_pagamento: formaPagamento,
         id_cartao: idCartao ? parseInt(idCartao) : null
@@ -1198,23 +1149,18 @@ async function doPost(url, body, callback) {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(body)
         });
-        
         if (res.status === 401) {
-            handleLogout(); // Força o logout se a sessão expirou
+            handleLogout(); 
             showNotification('Sua sessão expirou.', 'error');
             return;
         }
-
         const data = await res.json();
         if (res.ok) {
             callback(data);
         } else {
             showNotification(data.erro, 'error');
         }
-    } catch(e) { 
-        console.error(e); 
-        showNotification('Erro de conexão', 'error'); 
-    }
+    } catch(e) { console.error(e); showNotification('Erro de conexão', 'error'); }
 }
 
 function showNotification(msg, type='success') {
@@ -1231,14 +1177,11 @@ function abrirConfirmacao(mensagem, callback) {
     const modal = document.getElementById('modal-confirmacao');
     const txt = document.getElementById('msg-confirmacao');
     const btn = document.getElementById('btn-confirmar-acao');
-
     txt.textContent = mensagem;
-
     btn.onclick = function() {
         if (callback) callback();
         fecharModalConfirmacao();
     };
-
     modal.classList.remove('d-none');
 }
 
@@ -1254,16 +1197,13 @@ async function preencherSelectCartoesDashboard() {
             const cartoes = await res.json();
             const select = document.getElementById('dash-card-select');
             if(!select) return;
-
             select.innerHTML = '<option value="" disabled selected>Selecione um cartão...</option>';
-
             cartoes.forEach(c => {
                 const option = document.createElement('option');
                 option.value = c.id;
                 option.textContent = c.nome;
                 select.appendChild(option);
             });
-
             if (cartoes.length > 0) {
                 select.value = cartoes[0].id;
                 atualizarGraficoCartao();
@@ -1278,40 +1218,26 @@ async function atualizarGraficoCartao() {
     const fim = document.getElementById('dash-fim').value;
 
     if (!idCartao) return;
-
     try {
         const res = await fetch(`${API_BASE_URL}/api/dashboard/cartao_stats?id_cartao=${idCartao}&inicio=${inicio}&fim=${fim}`);
         if (res.ok) {
             const dados = await res.json();
             renderizarGraficoCartao(dados);
         }
-    } catch (error) {
-        console.error("Erro ao atualizar gráfico de cartão:", error);
-    }
+    } catch (error) { console.error("Erro ao atualizar gráfico de cartão:", error); }
 }
 
 function renderizarGraficoCartao(dados) {
     const ctx = document.getElementById('chart-cartao-especifico').getContext('2d');
     const labels = dados.map(item => item.categoria);
     const valores = dados.map(item => item.total);
-
-    const cores = [
-        '#6c5ce7', '#0984e3', '#00cec9', '#00b894', '#fdcb6e',
-        '#e17055', '#d63031', '#e84393', '#2d3436', '#636e72'
-    ];
+    const cores = ['#6c5ce7', '#0984e3', '#00cec9', '#00b894', '#fdcb6e','#e17055', '#d63031', '#e84393', '#2d3436', '#636e72'];
 
     if (chartCartaoEspecifico) chartCartaoEspecifico.destroy();
 
     chartCartaoEspecifico = new Chart(ctx, {
         type: 'doughnut',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: valores,
-                backgroundColor: cores,
-                borderWidth: 1
-            }]
-        },
+        data: { labels: labels, datasets: [{ data: valores, backgroundColor: cores, borderWidth: 1 }] },
         options: {
             responsive: true,
             maintainAspectRatio: false,
@@ -1323,9 +1249,7 @@ function renderizarGraficoCartao(dados) {
                         label: function(context) {
                             let label = context.label || '';
                             if (label) label += ': ';
-                            const valor = context.raw;
-                            // Usando formatarMoeda no tooltip
-                            label += formatarMoeda(valor);
+                            label += formatarMoeda(context.raw);
                             return label;
                         }
                     }
@@ -1351,11 +1275,9 @@ async function realizarSimulacao(e) {
     try {
         const res = await fetch(`${API_BASE_URL}/parcelas`);
         if (!res.ok) throw new Error('Erro ao buscar parcelas');
-        
         const todasParcelas = await res.json();
         
         const saldosPorMes = {};
-        
         todasParcelas.forEach(p => {
             const mesStr = p.vencimento.slice(0, 7); 
             if (!saldosPorMes[mesStr]) {
@@ -1385,11 +1307,7 @@ async function realizarSimulacao(e) {
             const saldoBaseAtual = dadosDoMes.receitas - dadosDoMes.despesas;
             
             let novoSaldo = saldoBaseAtual;
-            if (tipo === 'despesa') {
-                novoSaldo -= valorParcela;
-            } else {
-                novoSaldo += valorParcela;
-            }
+            if (tipo === 'despesa') { novoSaldo -= valorParcela; } else { novoSaldo += valorParcela; }
             
             saldoFinalDaSimulacao += novoSaldo;
             
@@ -1401,7 +1319,7 @@ async function realizarSimulacao(e) {
             let situacaoHtml = '';
             if (novoSaldo < 0) {
                 situacaoHtml = '<span class="badge bg-danger-subtle text-danger border border-danger p-2"><i class="bx bx-error"></i> Negativo</span>';
-            } else if (novoSaldo < 150) { // Margem de alerta curta
+            } else if (novoSaldo < 150) { 
                 situacaoHtml = '<span class="badge bg-warning-subtle text-warning border border-warning p-2"><i class="bx bx-info-circle"></i> Apertado</span>';
             } else {
                 situacaoHtml = '<span class="badge bg-success-subtle text-success border border-success p-2"><i class="bx bx-check-shield"></i> Seguro</span>';
@@ -1417,7 +1335,6 @@ async function realizarSimulacao(e) {
                 <td class="fw-bold ${novoSaldo < 0 ? 'text-danger' : 'text-success'} fs-6">${formatarMoeda(novoSaldo)}</td>
                 <td>${situacaoHtml}</td>
             `;
-            
             tbody.appendChild(tr);
         });
         
@@ -1436,23 +1353,130 @@ async function realizarSimulacao(e) {
     }
 }
 
+function limparSimulacao() {
+    document.getElementById('form-simulacao').reset();
+    const inputMesInicio = document.getElementById('sim-mes-inicio');
+    if(inputMesInicio) {
+        inputMesInicio.value = new Date().toISOString().slice(0, 7);
+    }
+    const resumo = document.getElementById('simulacao-resumo');
+    if (resumo) resumo.classList.add('d-none');
+    const tbody = document.getElementById('simulacao-resultados');
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="5" class="text-center py-5 text-muted">
+                <i class='bx bx-info-circle fs-3 d-block mb-2'></i>
+                Preencha os dados e clique em "Simular Projeção" para visualizar.
+            </td>
+        </tr>
+    `;
+}
+
+// --- CALENDÁRIO DASHBOARD ---
+function renderizarCalendarioPendencias(lista) {
+    listaPendentesGlobal = lista; 
+    renderizarGradeCalendario();
+}
+
+function mudarMesCalendario(delta) {
+    mesAtualCalendario.setMonth(mesAtualCalendario.getMonth() + delta);
+    renderizarGradeCalendario();
+}
+
+function renderizarGradeCalendario() {
+    const year = mesAtualCalendario.getFullYear();
+    const month = mesAtualCalendario.getMonth();
+    const mesAnoTexto = mesAtualCalendario.toLocaleDateString('pt-BR', {month: 'long', year: 'numeric'});
+    const titulo = document.getElementById('calendario-mes-ano');
+    if (titulo) titulo.textContent = mesAnoTexto;
+
+    const grid = document.getElementById('calendar-grid');
+    if(!grid) return;
+    grid.innerHTML = '';
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const hoje = new Date();
+    const hojeY = hoje.getFullYear(), hojeM = hoje.getMonth(), hojeD = hoje.getDate();
+
+    for(let i=0; i<firstDay; i++) {
+        grid.innerHTML += `<div class="calendar-day empty"></div>`;
+    }
+
+    for(let day=1; day<=daysInMonth; day++) {
+        const dataAtualStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+        const isToday = (year === hojeY && month === hojeM && day === hojeD);
+        const eventosDia = listaPendentesGlobal.filter(p => p.vencimento === dataAtualStr);
+        
+        let htmlEventos = '';
+        eventosDia.forEach(ev => {
+            const classeCor = ev.tipo === 'receita' ? 'receita' : 'despesa';
+            const prefix = ev.tipo === 'receita' ? '+' : '-';
+            htmlEventos += `<div class="calendar-event ${classeCor}" title="${ev.descricao} - ${formatarMoeda(ev.valor)}">${prefix}${formatarMoeda(ev.valor)} ${ev.descricao}</div>`;
+        });
+
+        grid.innerHTML += `
+            <div class="calendar-day ${isToday ? 'today' : ''}">
+                <div class="calendar-day-number">${day}</div>
+                <div class="calendar-events flex-grow-1">${htmlEventos}</div>
+            </div>
+        `;
+    }
+}
+
+function abrirModalPendentes() {
+    const tbody = document.getElementById('tabela-pendentes-modal');
+    if(!tbody) return;
+    tbody.innerHTML = '';
+    
+    if(listaPendentesGlobal.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-success py-5"><i class='bx bx-check-circle fs-3 d-block mb-2'></i> Oba! Nenhuma conta ou receita pendente.</td></tr>`;
+    } else {
+        const pendentesOrdenados = [...listaPendentesGlobal].sort((a,b) => new Date(a.vencimento) - new Date(b.vencimento));
+        pendentesOrdenados.forEach(p => {
+            const dataParts = p.vencimento.split('-');
+            const dataDisplay = `${dataParts[2]}/${dataParts[1]}/${dataParts[0]}`;
+            
+            let badge = 'status-a_pagar';
+            let stExib = 'A Pagar';
+            if(p.status === 'atrasado') { badge = 'status-atrasado'; stExib = 'Atrasado'; }
+            if(p.status === 'a_receber') { badge = 'status-a_receber'; stExib = 'A Receber'; }
+            
+            const corValor = p.tipo === 'receita' ? 'text-success' : 'text-danger';
+            const prefix = p.tipo === 'receita' ? '+' : '-';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td class="ps-4 fw-medium">${dataDisplay}</td>
+                    <td class="fw-bold text-dark">${p.descricao}</td>
+                    <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
+                    <td class="text-muted">${p.numero}</td>
+                    <td class="fw-bold ${corValor}">${prefix}${formatarMoeda(p.valor)}</td>
+                    <td><span class="status-badge ${badge}">${stExib}</span></td>
+                </tr>
+            `;
+        });
+    }
+    document.getElementById('modal-lista-pendentes').classList.remove('d-none');
+}
+
+function fecharModalPendentes() {
+    document.getElementById('modal-lista-pendentes').classList.add('d-none');
+}
+
 async function carregarDadosExtrasDashboard() {
     try {
         const res = await fetch(`${API_BASE_URL}/api/dashboard/extras`);
         if (!res.ok) return;
-        
         const dados = await res.json();
         
         document.getElementById('dash-saldo-acumulado').textContent = formatarMoeda(dados.saldo_acumulado);
-
-        // Renderiza Tabelas
-        renderizarTabelaMeses('tabela-fechamento', dados.meses_fechados, true); // true = descrescente (mais recente no topo)
-        renderizarTabelaMeses('tabela-previsao', dados.meses_futuros, false);   // false = crescente (próximos meses no topo)
-        renderizarPendentes(dados.pendentes);
-
-    } catch (error) {
-        console.error("Erro ao carregar dados extras:", error);
-    }
+        renderizarTabelaMeses('tabela-fechamento', dados.meses_fechados, true); 
+        renderizarTabelaMeses('tabela-previsao', dados.meses_futuros, false);   
+        
+        // Renderiza o Calendário e a lista do Modal
+        renderizarCalendarioPendencias(dados.pendentes);
+    } catch (error) { console.error("Erro ao carregar dados extras:", error); }
 }
 
 function formatarMesAnoUI(mesIso) {
@@ -1466,57 +1490,22 @@ function renderizarTabelaMeses(idTabela, dadosDict, desc) {
     const tbody = document.getElementById(idTabela);
     if (!tbody) return;
     tbody.innerHTML = '';
-
     let chaves = Object.keys(dadosDict).sort();
     if (desc) chaves.reverse();
-
     if (chaves.length === 0) {
         tbody.innerHTML = `<tr><td colspan="4" class="text-muted py-5">Nenhum dado encontrado.</td></tr>`;
         return;
     }
-
     chaves.forEach(mes => {
         const row = dadosDict[mes];
         const saldo = row.receitas - row.despesas;
         const cor = saldo >= 0 ? 'text-success' : 'text-danger';
-
         const tr = document.createElement('tr');
         tr.innerHTML = `
             <td class="fw-bold text-dark">${formatarMesAnoUI(mes)}</td>
             <td class="text-success fw-medium">${formatarMoeda(row.receitas)}</td>
             <td class="text-danger fw-medium">${formatarMoeda(row.despesas)}</td>
             <td class="fw-bold ${cor} bg-light">${formatarMoeda(saldo)}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-function renderizarPendentes(lista) {
-    const tbody = document.getElementById('tabela-pendentes');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (lista.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-success py-5"><i class='bx bx-check-circle fs-3 d-block mb-2'></i> Oba! Nenhuma conta pendente de pagamento.</td></tr>`;
-        return;
-    }
-
-    // Ordenar do mais antigo para o mais novo
-    lista.sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento));
-
-    lista.forEach(p => {
-        const dataParts = p.vencimento.split('-');
-        const dataDisplay = `${dataParts[2]}/${dataParts[1]}/${dataParts[0]}`;
-        const badge = p.status === 'atrasado' ? 'status-atrasado' : 'status-a_pagar';
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td class="ps-4 fw-medium">${dataDisplay}</td>
-            <td class="fw-bold text-dark">${p.descricao}</td>
-            <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
-            <td class="text-muted">${p.numero}</td>
-            <td class="fw-bold text-danger">${formatarMoeda(p.valor)}</td>
-            <td><span class="status-badge ${badge}">${p.status.replace('_', ' ')}</span></td>
         `;
         tbody.appendChild(tr);
     });
@@ -1529,11 +1518,9 @@ function tentarExcluirParcela(index) {
     const partesNum = p.numero.split('/');
     const totalParcelas = parseInt(partesNum[1]);
 
-    // Se a transação tem mais de 1 parcela no total, abre o modal de fluxo
     if (totalParcelas > 1) {
         abrirModalExclusaoLote(p.id_transacao, p.descricao);
     } else {
-        // Se é parcela única, segue o fluxo normal antigo
         excluirDireto(p.id); 
     }
 }
@@ -1544,7 +1531,6 @@ async function abrirModalExclusaoLote(id_transacao, descricao) {
         if (!res.ok) throw new Error("Erro ao buscar parcelas");
         const parcelas = await res.json();
 
-        // Se por acaso abriu o modal mas já deletou a última parcela, fecha
         if(parcelas.length === 0) {
             fecharModalExclusaoLote();
             return;
@@ -1558,12 +1544,11 @@ async function abrirModalExclusaoLote(id_transacao, descricao) {
             const dataDisplay = `${dataParts[2]}/${dataParts[1]}/${dataParts[0]}`;
             
             let badge = p.status === 'atrasado' ? 'status-atrasado' : (p.status === 'pago' || p.status === 'recebido' ? 'status-pago' : 'status-a_pagar');
+            if (p.status === 'a_receber') badge = 'status-a_receber';
 
             tbody.innerHTML += `
                 <tr>
-                    <td>
-                        <button class="btn btn-sm btn-outline-danger py-0 px-2 fs-6" title="Excluir apenas esta" onclick="excluirParcelaUnicaModal(${p.id}, ${id_transacao}, '${descricao}')"><i class='bx bx-trash'></i></button>
-                    </td>
+                    <td><button class="btn btn-sm btn-outline-danger py-0 px-2 fs-6" title="Excluir apenas esta" onclick="excluirParcelaUnicaModal(${p.id}, ${id_transacao}, '${descricao}')"><i class='bx bx-trash'></i></button></td>
                     <td class="fw-medium">${dataDisplay}</td>
                     <td class="text-muted">${p.numero_parcela}/${p.qtd_parcelas}</td>
                     <td class="fw-bold">${formatarMoeda(p.valor)}</td>
@@ -1572,12 +1557,9 @@ async function abrirModalExclusaoLote(id_transacao, descricao) {
             `;
         });
 
-        // Configura a ação do botão principal
         document.getElementById('btn-excluir-todas-parcelas').onclick = () => excluirTodasParcelas(id_transacao);
         document.getElementById('modal-exclusao-lote').classList.remove('d-none');
-    } catch(e) {
-        showNotification("Erro ao carregar os dados da transação", "error");
-    }
+    } catch(e) { showNotification("Erro ao carregar os dados da transação", "error"); }
 }
 
 function fecharModalExclusaoLote() {
@@ -1591,18 +1573,14 @@ function excluirParcelaUnicaModal(idParcela, idTransacao, descricao) {
             const data = await res.json();
             if (res.ok) {
                 showNotification(data.mensagem, 'success');
-                // Recarrega o modal para tirar a excluída da lista
                 abrirModalExclusaoLote(idTransacao, descricao); 
-                // Atualiza o sistema por trás
                 loadParcelas();
                 loadDashboard();
                 carregarDadosExtrasDashboard();
             } else {
                 showNotification(data.erro, 'error');
             }
-        } catch(e) {
-            showNotification('Erro ao excluir', 'error');
-        }
+        } catch(e) { showNotification('Erro ao excluir', 'error'); }
     });
 }
 
@@ -1617,12 +1595,8 @@ function excluirTodasParcelas(id_transacao) {
                 loadParcelas();
                 loadDashboard();
                 carregarDadosExtrasDashboard();
-            } else {
-                showNotification(data.erro, 'error');
-            }
-        } catch(e) {
-            showNotification('Erro ao cancelar fluxo', 'error');
-        }
+            } else { showNotification(data.erro, 'error'); }
+        } catch(e) { showNotification('Erro ao cancelar fluxo', 'error'); }
     });
 }
 
@@ -1635,7 +1609,7 @@ function prepararReparcelar() {
     const idParcela = document.getElementById('edit-id').value;
     const p = parcelasAtuais.find(x => x.id == idParcela);
     if (p) {
-        fecharModal(); // Fecha o modal de edição
+        fecharModal(); 
         abrirModalReparcelar(p.id_transacao);
     }
 }
@@ -1645,24 +1619,16 @@ async function abrirModalReparcelar(id_transacao) {
     try {
         const res = await fetch(`${API_BASE_URL}/api/transacao/${id_transacao}/parcelas`);
         if (!res.ok) throw new Error("Erro ao buscar parcelas");
-        
         const parcelas = await res.json();
         
-        // Pega a soma atual para colocar no Valor Total
         let total = parcelas.reduce((acc, p) => acc + parseFloat(p.valor), 0);
         document.getElementById('reparcelar-valor-total').value = formatarValorInput(total);
         
-        // Copia os dados para a nossa variável de estado
-        parcelasReparcelamento = parcelas.map((p) => ({
-            valor: parseFloat(p.valor),
-            vencimento: p.vencimento
-        }));
+        parcelasReparcelamento = parcelas.map((p) => ({ valor: parseFloat(p.valor), vencimento: p.vencimento }));
         
         renderizarListaReparcelamento();
         document.getElementById('modal-reparcelar').classList.remove('d-none');
-    } catch(e) {
-        showNotification("Erro ao carregar os dados para reparcelamento", "error");
-    }
+    } catch(e) { showNotification("Erro ao carregar os dados para reparcelamento", "error"); }
 }
 
 function fecharModalReparcelar() {
@@ -1672,17 +1638,12 @@ function fecharModalReparcelar() {
 function renderizarListaReparcelamento() {
     const tbody = document.getElementById('lista-reparcelamento');
     tbody.innerHTML = '';
-    
     parcelasReparcelamento.forEach((p, i) => {
         tbody.innerHTML += `
             <tr>
                 <td class="text-muted fw-bold">${i + 1}</td>
-                <td>
-                    <input type="text" class="form-control form-control-sm text-center fw-bold input-rep-valor" value="${formatarValorInput(p.valor)}" oninput="mascaraMilhar(event); atualizarValorReparcelamento(${i}, this.value); calcularSomaReparcelamento()">
-                </td>
-                <td>
-                    <input type="date" class="form-control form-control-sm text-center input-rep-data" value="${p.vencimento}" onchange="atualizarDataReparcelamento(${i}, this.value)">
-                </td>
+                <td><input type="text" class="form-control form-control-sm text-center fw-bold input-rep-valor" value="${formatarValorInput(p.valor)}" oninput="mascaraMilhar(event); atualizarValorReparcelamento(${i}, this.value); calcularSomaReparcelamento()"></td>
+                <td><input type="date" class="form-control form-control-sm text-center input-rep-data" value="${p.vencimento}" onchange="atualizarDataReparcelamento(${i}, this.value)"></td>
                 <td>
                     <div class="btn-group btn-group-sm shadow-sm" role="group">
                         <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaReparcelamento(${i}, 'M')" title="Avançar 1 Mês"> M</button>
@@ -1690,36 +1651,26 @@ function renderizarListaReparcelamento() {
                         <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaReparcelamento(${i}, '=')" title="Copiar p/ Baixo"> = </button>
                     </div>
                 </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-danger py-0 px-2 fs-6" onclick="removerParcelaReparcelamento(${i})"><i class='bx bx-trash'></i></button>
-                </td>
+                <td><button class="btn btn-sm btn-outline-danger py-0 px-2 fs-6" onclick="removerParcelaReparcelamento(${i})"><i class='bx bx-trash'></i></button></td>
             </tr>
         `;
     });
     calcularSomaReparcelamento();
 }
 
-function atualizarValorReparcelamento(index, valStr) {
-    parcelasReparcelamento[index].valor = limparFormatacao(valStr) || 0;
-}
-
-function atualizarDataReparcelamento(index, val) {
-    parcelasReparcelamento[index].vencimento = val;
-}
+function atualizarValorReparcelamento(index, valStr) { parcelasReparcelamento[index].valor = limparFormatacao(valStr) || 0; }
+function atualizarDataReparcelamento(index, val) { parcelasReparcelamento[index].vencimento = val; }
 
 function adicionarParcelaReparcelamento() {
     let nextDate = new Date().toISOString().split('T')[0];
-    
-    // Se já tiver parcelas, sugere a data como 1 mês após a última
     if (parcelasReparcelamento.length > 0) {
         let lastDate = parcelasReparcelamento[parcelasReparcelamento.length - 1].vencimento;
         if (lastDate) {
             let [ano, mes, dia] = lastDate.split('-').map(Number);
-            let nd = new Date(ano, mes, dia); // Mes avança sozinho porque o JS entende mes 0-11
+            let nd = new Date(ano, mes, dia); 
             nextDate = nd.toISOString().split('T')[0];
         }
     }
-    
     parcelasReparcelamento.push({ valor: 0, vencimento: nextDate });
     recalcularTodasParcelasReparcelamento();
 }
@@ -1741,12 +1692,9 @@ function recalcularTodasParcelasReparcelamento() {
     if (qtd > 0 && total > 0) {
         let valorBase = total / qtd;
         let totalDistribuido = 0;
-        
         for (let i = 0; i < qtd; i++) {
             let v = Number(valorBase.toFixed(2));
-            if (i === qtd - 1) {
-                v = Number((total - totalDistribuido).toFixed(2)); // Última tira a diferença de centavos
-            }
+            if (i === qtd - 1) { v = Number((total - totalDistribuido).toFixed(2)); }
             totalDistribuido += v;
             parcelasReparcelamento[i].valor = v;
         }
@@ -1758,11 +1706,7 @@ function calcularSomaReparcelamento() {
     let totalStr = document.getElementById('reparcelar-valor-total').value;
     let total = limparFormatacao(totalStr);
     let soma = 0;
-    
-    document.querySelectorAll('.input-rep-valor').forEach(inp => {
-        soma += limparFormatacao(inp.value) || 0;
-    });
-    
+    document.querySelectorAll('.input-rep-valor').forEach(inp => { soma += limparFormatacao(inp.value) || 0; });
     let dif = total - soma;
     document.getElementById('reparcelar-soma').textContent = formatarMoeda(soma);
     document.getElementById('reparcelar-diferenca').textContent = formatarMoeda(Math.abs(dif));
@@ -1778,10 +1722,7 @@ function calcularSomaReparcelamento() {
 
 function aplicarRecorrenciaReparcelamento(indexBase, tipo) {
     const dataBaseVal = parcelasReparcelamento[indexBase].vencimento;
-    if (!dataBaseVal) {
-        showNotification('Preencha a data base antes de replicar.', 'error');
-        return;
-    }
+    if (!dataBaseVal) { showNotification('Preencha a data base antes de replicar.', 'error'); return; }
 
     const [anoBase, mesBase, diaBase] = dataBaseVal.split('-').map(Number);
 
@@ -1813,15 +1754,8 @@ function salvarReparcelamento() {
     let soma = 0;
     
     parcelasReparcelamento.forEach(p => soma += p.valor);
-    
-    if (Math.abs(total - soma) > 0.01) {
-        showNotification("A soma das parcelas deve ser igual ao Valor Total.", "error");
-        return;
-    }
-    if (parcelasReparcelamento.some(p => !p.vencimento)) {
-        showNotification("Preencha as datas de todas as parcelas.", "error");
-        return;
-    }
+    if (Math.abs(total - soma) > 0.01) { showNotification("A soma das parcelas deve ser igual ao Valor Total.", "error"); return; }
+    if (parcelasReparcelamento.some(p => !p.vencimento)) { showNotification("Preencha as datas de todas as parcelas.", "error"); return; }
     
     const id_transacao = document.getElementById('reparcelar-id-transacao').value;
     const datas = parcelasReparcelamento.map(p => p.vencimento);
@@ -1834,42 +1768,4 @@ function salvarReparcelamento() {
         loadDashboard();
         carregarDadosExtrasDashboard();
     });
-}
-function limparSimulacao() {
-    document.getElementById('form-simulacao').reset();
-    
-    const inputMesInicio = document.getElementById('sim-mes-inicio');
-    if(inputMesInicio) {
-        inputMesInicio.value = new Date().toISOString().slice(0, 7);
-    }
-
-    const resumo = document.getElementById('simulacao-resumo');
-    if (resumo) resumo.classList.add('d-none');
-    
-    const tbody = document.getElementById('simulacao-resultados');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="5" class="text-center py-5 text-muted">
-                <i class='bx bx-info-circle fs-3 d-block mb-2'></i>
-                Preencha os dados e clique em "Simular Projeção" para visualizar.
-            </td>
-        </tr>
-    `;
-}
-
-function toggleSelectCartaoEdit() {
-    const forma = document.getElementById('edit-forma-pagamento').value;
-    const divCartao = document.getElementById('div-select-cartao-edit');
-    const inputCartao = document.getElementById('edit-cartao-id');
-
-    if (forma === 'Cartão Crédito') {
-        divCartao.classList.remove('d-none');
-        if(inputCartao) inputCartao.setAttribute('required', 'required');
-    } else {
-        divCartao.classList.add('d-none');
-        if(inputCartao) {
-            inputCartao.removeAttribute('required');
-            inputCartao.value = "";
-        }
-    }
 }

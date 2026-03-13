@@ -172,62 +172,14 @@ body {
     to { transform: translateX(0); opacity: 1; }
 }
 
-/* Responsividade básica do Sidebar */
 @media (max-width: 991.98px) {
     .app-menubar {
         left: calc(-1 * var(--app-sidebar-width));
     }
-    .app-wrapper {
-        margin-left: 0;
-        width: 100%;
-    }
-    .app-header {
-        left: 0;
-        width: 100%;
-    }
-}
-
-/* ==========================================
-   Badges de Status (Injetados pelo script.js)
-============================================= */
-.status-badge {
-    padding: 5px 12px;
-    border-radius: 50px; /* Deixa o formato arredondado como pílula */
-    font-size: 0.75rem;
-    font-weight: 600;
-    display: inline-block;
-    text-transform: uppercase;
-}
-
-/* A Pagar (Amarelo/Warning do NexLink) */
-.status-a_pagar {
-    background-color: rgba(245, 167, 13, 0.15); 
-    color: #F5A70D;
-}
-
-/* Pago (Verde/Success do NexLink) */
-.status-pago {
-    background-color: rgba(0, 153, 102, 0.15); 
-    color: #009966;
-}
-
-/* Atrasado (Vermelho/Danger do NexLink) */
-.status-atrasado {
-    background-color: rgba(248, 54, 54, 0.15); 
-    color: #F83636;
-}
-
-
-@media (max-width: 991.98px) {
-    .app-menubar {
-        left: calc(-1 * var(--app-sidebar-width));
-    }
-    /* ADICIONE ISTO AQUI: */
     .app-menubar.menu-aberto {
         left: 0;
         box-shadow: 10px 0 15px rgba(0,0,0,0.1);
     }
-    /* O resto já lá está... */
     .app-wrapper {
         margin-left: 0;
         width: 100%;
@@ -238,15 +190,91 @@ body {
     }
 }
 
-/* Ajuste do Extrato (Rover) para telas de celular */
 @media (max-width: 576px) {
     .rover-item {
         padding: 6px 4px;
         font-size: 0.8rem;
     }
-    /* Esconde o mês mais antigo e o mais no futuro no celular */
     #rover-lista .rover-item:first-child,
     #rover-lista .rover-item:last-child {
         display: none;
     }
+}
+
+/* ==========================================
+   Calendário de Pendências
+============================================= */
+.calendar-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.calendar-header-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-weight: 600;
+    color: var(--bs-body-color);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+}
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+}
+.calendar-day {
+    background-color: #fff;
+    border: 1px solid #eaeaea;
+    border-radius: 8px;
+    min-height: 85px;
+    padding: 5px;
+    display: flex;
+    flex-direction: column;
+    transition: 0.2s;
+}
+.calendar-day.empty {
+    background-color: transparent;
+    border-color: transparent;
+}
+.calendar-day:hover:not(.empty) {
+    border-color: var(--bs-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.calendar-day-number {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--bs-heading-color);
+    margin-bottom: 5px;
+    text-align: right;
+}
+.calendar-day.today .calendar-day-number {
+    color: var(--bs-primary);
+    background-color: var(--bs-primary-subtle);
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: flex-end;
+}
+.calendar-event {
+    font-size: 0.7rem;
+    padding: 3px 5px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    color: #fff;
+    cursor: default;
+}
+.calendar-event.despesa { background-color: var(--bs-danger); }
+.calendar-event.receita { background-color: var(--bs-success); }
+
+@media (max-width: 576px) {
+    .calendar-day { min-height: 60px; }
+    .calendar-event { font-size: 0.6rem; padding: 2px 4px; }
 }

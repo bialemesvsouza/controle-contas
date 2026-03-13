@@ -73,15 +73,18 @@ def unauthorized_callback():
 
 # --- LÓGICA AUXILIAR ---
 def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
-    if transacao_obj.tipo_transacao == 'receita':
-        status_inicial = 'recebido'
-    else:
-        status_inicial = 'a_pagar'
-
+    hoje = datetime.now().date()
+    
     for i, data_str in enumerate(lista_datas):
         data_venc = datetime.strptime(data_str, '%Y-%m-%d').date()
 
-        # Se a UI enviou a lista de valores customizados, usamos eles
+        if transacao_obj.tipo_transacao == 'receita':
+            status_inicial = 'recebido' if data_venc <= hoje else 'a_receber'
+            data_pag = data_venc if status_inicial == 'recebido' else None
+        else:
+            status_inicial = 'a_pagar'
+            data_pag = None
+
         if lista_valores and len(lista_valores) > i:
             valor_parc = float(lista_valores[i])
         else:
@@ -94,9 +97,28 @@ def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
             valor=valor_parc,
             vencimento=data_venc,
             status=status_inicial,
-            data_pagamento=data_venc if status_inicial == 'recebido' else None
+            data_pagamento=data_pag
         )
         db.session.add(nova_parcela)
+    db.session.commit()
+
+def atualizar_status_automaticos(user_id):
+    hoje = datetime.now().date()
+    
+    # Atualiza Despesas Atrasadas
+    Parcela.query.filter(
+        Parcela.id_usuario == user_id,
+        Parcela.status == 'a_pagar',
+        Parcela.vencimento < hoje
+    ).update({Parcela.status: 'atrasado'}, synchronize_session=False)
+    
+    # Atualiza Receitas que chegaram na data
+    Parcela.query.filter(
+        Parcela.id_usuario == user_id,
+        Parcela.status == 'a_receber',
+        Parcela.vencimento <= hoje
+    ).update({Parcela.status: 'recebido', Parcela.data_pagamento: hoje}, synchronize_session=False)
+
     db.session.commit()
 
 # --- ROTAS ---
@@ -227,7 +249,6 @@ def excluir_cartao(id_cartao):
     if not cartao:
         return jsonify({"erro": "Cartão não encontrado"}), 404
 
-    # Verifica se tem uso
     uso = Transacao.query.filter_by(id_cartao=id_cartao).first()
     if uso:
         return jsonify({"erro": "Não é possível excluir: Cartão vinculado a transações."}), 400
@@ -265,7 +286,6 @@ def nova_transacao():
     db.session.add(nova)
     db.session.commit()
 
-    # Agora passamos os valores_parcelas para a função
     gerar_parcelas_customizadas(nova, dados['datas_parcelas'], dados.get('valores_parcelas'))
     return jsonify({"mensagem": "Transação criada com sucesso!"})
 
@@ -329,7 +349,7 @@ def dashboard():
 @app.route('/parcelas', methods=['GET'])
 @login_required
 def listar_parcelas():
-    atualizar_atrasos(current_user.id)
+    atualizar_status_automaticos(current_user.id)
     mes_filtro = request.args.get('mes')
     query = Parcela.query.filter_by(id_usuario=current_user.id)
 
@@ -354,7 +374,7 @@ def listar_parcelas():
             "id_categoria": p.transacao.id_tipo,
             "id_transacao": p.transacao.id,
             "forma_pagamento": p.transacao.forma_pagamento,
-            "nome_cartao": p.transacao.cartao.nome if p.transacao.cartao else None  # ADICIONADO AQUI
+            "nome_cartao": p.transacao.cartao.nome if p.transacao.cartao else None
         })
     return jsonify(lista)
 
@@ -367,10 +387,11 @@ def baixar_lote():
         return jsonify({"erro": "Nenhum item selecionado"}), 400
 
     hoje = datetime.now().date()
-    Parcela.query.filter(Parcela.id.in_(ids), Parcela.id_usuario == current_user.id).update({
-        Parcela.status: 'pago',
-        Parcela.data_pagamento: hoje
-    }, synchronize_session=False)
+    parcelas = Parcela.query.filter(Parcela.id.in_(ids), Parcela.id_usuario == current_user.id).all()
+    
+    for p in parcelas:
+        p.status = 'recebido' if p.transacao.tipo_transacao == 'receita' else 'pago'
+        p.data_pagamento = hoje
 
     db.session.commit()
     return jsonify({"mensagem": f"{len(ids)} parcelas baixadas com sucesso!"})
@@ -398,9 +419,9 @@ def editar_parcela(id_parcela):
         else:
             parcela.transacao.id_cartao = None
 
-    if parcela.status == 'pago' and not parcela.data_pagamento:
+    if parcela.status in ['pago', 'recebido'] and not parcela.data_pagamento:
         parcela.data_pagamento = datetime.now().date()
-    elif parcela.status != 'pago':
+    elif parcela.status not in ['pago', 'recebido']:
         parcela.data_pagamento = None
 
     db.session.commit()
@@ -417,17 +438,6 @@ def excluir_parcela(id_parcela):
     db.session.commit()
     return jsonify({"mensagem": "Parcela excluída com sucesso!"})
 
-def atualizar_atrasos(user_id):
-    hoje = datetime.now().date()
-    Parcela.query.filter(
-        Parcela.id_usuario == user_id,
-        Parcela.status == 'a_pagar',
-        Parcela.vencimento < hoje
-    ).update({Parcela.status: 'atrasado'}, synchronize_session=False)
-
-    db.session.commit()
-
-# --- NOVA ROTA DO CARD DE CARTÃO ---
 @app.route('/api/dashboard/cartao_stats', methods=['GET'])
 @login_required
 def dashboard_cartao():
@@ -444,7 +454,6 @@ def dashboard_cartao():
     except ValueError:
         return jsonify({"erro": "Datas inválidas"}), 400
 
-    # Consulta: Soma das parcelas, filtradas por usuário, cartão, tipo despesa e data
     resultados = db.session.query(Tipo.nome, db.func.sum(Parcela.valor))\
         .join(Transacao, Transacao.id_tipo == Tipo.id)\
         .join(Parcela, Parcela.id_transacao == Transacao.id)\
@@ -477,24 +486,22 @@ def atualizar_senha_direto():
     
     user = Usuario.query.filter_by(email=email).first()
     if user:
-        user.password = nova_senha # Atualiza a senha
+        user.password = nova_senha 
         db.session.commit()
         return jsonify({"mensagem": "Senha atualizada com sucesso!"})
         
     return jsonify({"erro": "Erro ao atualizar senha"}), 400
 
-
 @app.route('/api/dashboard/extras', methods=['GET'])
 @login_required
 def dashboard_extras():
-    atualizar_atrasos(current_user.id) # Garante que os status estejam atualizados
+    atualizar_status_automaticos(current_user.id) 
     
     hoje = datetime.now().date()
     mes_atual_str = hoje.strftime('%Y-%m')
     limite_futuro = hoje + relativedelta(months=12)
     limite_futuro_str = limite_futuro.strftime('%Y-%m')
 
-    # Busca as parcelas e transações associadas do usuário logado
     parcelas_query = db.session.query(Parcela, Transacao).join(Transacao).filter(Parcela.id_usuario == current_user.id).all()
 
     saldo_acumulado = 0.0
@@ -506,14 +513,12 @@ def dashboard_extras():
         valor = p.valor
         mes_p = p.vencimento.strftime('%Y-%m')
         
-        # 1. Saldo Acumulado (Até o dia de hoje)
         if p.vencimento <= hoje:
             if t.tipo_transacao == 'receita':
                 saldo_acumulado += valor
             else:
                 saldo_acumulado -= valor
                 
-        # 2. Relatório de Fechamento (Meses Anteriores)
         if mes_p < mes_atual_str:
             if mes_p not in meses_fechados:
                 meses_fechados[mes_p] = {"receitas": 0.0, "despesas": 0.0}
@@ -522,7 +527,6 @@ def dashboard_extras():
             else:
                 meses_fechados[mes_p]["despesas"] += valor
                 
-        # 3. Previsão para os próximos 12 meses
         if mes_atual_str <= mes_p < limite_futuro_str:
             if mes_p not in meses_futuros:
                 meses_futuros[mes_p] = {"receitas": 0.0, "despesas": 0.0}
@@ -531,8 +535,7 @@ def dashboard_extras():
             else:
                 meses_futuros[mes_p]["despesas"] += valor
                 
-        # 4. Pendentes de Pagamento
-        if p.status in ['a_pagar', 'atrasado'] and t.tipo_transacao == 'despesa':
+        if p.status in ['a_pagar', 'atrasado', 'a_receber']:
             pendentes.append({
                 "id": p.id,
                 "descricao": t.descricao,
@@ -540,11 +543,9 @@ def dashboard_extras():
                 "valor": p.valor,
                 "vencimento": str(p.vencimento),
                 "status": p.status,
-                "categoria": t.tipo.nome if t.tipo else 'Geral'
+                "categoria": t.tipo.nome if t.tipo else 'Geral',
+                "tipo": t.tipo_transacao
             })
-            
-    # Ordenar os pendentes da data mais antiga para a mais nova
-    pendentes.sort(key=lambda x: datetime.strptime(x["vencimento"], '%Y-%m-%d'))
 
     return jsonify({
         "saldo_acumulado": saldo_acumulado,
@@ -600,18 +601,13 @@ def reparcelar_transacao(id_transacao):
         
     soma_total = sum([float(v) for v in novos_valores])
     
-    # Atualiza os dados da transação principal
     transacao.valor_total = soma_total
     transacao.qtd_parcelas = len(novos_valores)
     
-    # Deleta as parcelas antigas (o cascade no SQLAlchemy pode fazer isso, mas aqui garantimos)
     Parcela.query.filter_by(id_transacao=id_transacao).delete()
-    
-    # Cria as novas usando a função auxiliar que já existe
     gerar_parcelas_customizadas(transacao, novas_datas, novos_valores)
     
     return jsonify({"mensagem": "Reparcelamento concluído com sucesso!"})
-
 
 if __name__ == '__main__':
     with app.app_context():
