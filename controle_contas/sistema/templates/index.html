@@ -714,6 +714,22 @@
                         <label class="form-label small text-muted">Categoria</label>
                         <select class="form-select bg-light border-0" id="edit-categoria" required></select>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Forma de Pagamento</label>
+                        <select class="form-select bg-light border-0" id="edit-forma-pagamento" required onchange="toggleSelectCartaoEdit()">
+                            <option value="Pix">PIX</option>
+                            <option value="Cartão Crédito">Cartão Crédito</option>
+                            <option value="Cartão Débito">Cartão Débito</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Transferência Bancária">Transferência Bancária</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 d-none p-3 bg-primary-subtle rounded-3" id="div-select-cartao-edit">
+                        <label class="form-label fw-medium text-primary small mb-1">Selecione o Cartão</label>
+                        <select class="form-select border-primary" id="edit-cartao-id">
+                            <option value="" disabled selected>Escolha um cartão...</option>
+                        </select>
+                    </div>
                     <div class="row g-2 mb-3">
                         <div class="col-6 form-group">
                             <label class="form-label small text-muted">Valor (R$)</label>

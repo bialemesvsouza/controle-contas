@@ -391,6 +391,13 @@ def editar_parcela(id_parcela):
     if 'id_categoria' in dados and dados['id_categoria']:
         parcela.transacao.id_tipo = int(dados['id_categoria'])
 
+    if 'forma_pagamento' in dados:
+        parcela.transacao.forma_pagamento = dados['forma_pagamento']
+        if dados['forma_pagamento'] == 'Cartão Crédito' and dados.get('id_cartao'):
+            parcela.transacao.id_cartao = int(dados['id_cartao'])
+        else:
+            parcela.transacao.id_cartao = None
+
     if parcela.status == 'pago' and not parcela.data_pagamento:
         parcela.data_pagamento = datetime.now().date()
     elif parcela.status != 'pago':

@@ -1047,9 +1047,35 @@ function abrirModal(index) {
 
     document.getElementById('edit-id').value = p.id;
     document.getElementById('edit-descricao').value = p.descricao;
-    // AQUI ADICIONEI O formatarValorInput PARA PREENCHER COM PONTOS NO MODAL
     document.getElementById('edit-valor').value = formatarValorInput(p.valor);
     document.getElementById('edit-vencimento').value = p.vencimento;
+
+   
+    const selectFormaPagamento = document.getElementById('edit-forma-pagamento');
+    const selectCartao = document.getElementById('edit-cartao-id');
+    
+    if (selectFormaPagamento) {
+        selectFormaPagamento.value = p.forma_pagamento || 'Pix';
+    }
+
+    if (selectCartao) {
+        selectCartao.innerHTML = '<option value="" disabled selected>Escolha um cartão...</option>';
+        todosCartoes.forEach(c => {
+            const option = document.createElement('option');
+            option.value = c.id;
+            option.textContent = c.nome;
+            selectCartao.appendChild(option);
+        });
+        
+        // Se for cartão de crédito, encontra o ID dele pelo nome retornado no Extrato
+        if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
+            const cartaoEncontrado = todosCartoes.find(c => c.nome === p.nome_cartao);
+            if (cartaoEncontrado) {
+                selectCartao.value = cartaoEncontrado.id;
+            }
+        }
+    }
+    toggleSelectCartaoEdit(); // Atualiza a exibição (oculta/mostra) do select do cartão
 
     const selectStatus = document.getElementById('edit-status');
     const divStatus = selectStatus.closest('.form-group');
@@ -1101,12 +1127,23 @@ async function salvarEdicao(e) {
         statusParaEnviar = 'recebido';
     }
 
+    const formaPagamento = document.getElementById('edit-forma-pagamento').value;
+    const idCartao = document.getElementById('edit-cartao-id').value;
+
+    // Impede de salvar se o usuário escolheu "Cartão Crédito" mas não selecionou qual cartão
+    if (formaPagamento === 'Cartão Crédito' && !idCartao) {
+        showNotification('Selecione qual cartão foi utilizado', 'error');
+        return;
+    }
+
     const body = {
         descricao: document.getElementById('edit-descricao').value,
         valor: limparFormatacao(document.getElementById('edit-valor').value),
         vencimento: document.getElementById('edit-vencimento').value,
         status: statusParaEnviar,
-        id_categoria: document.getElementById('edit-categoria').value
+        id_categoria: document.getElementById('edit-categoria').value,
+        forma_pagamento: formaPagamento,
+        id_cartao: idCartao ? parseInt(idCartao) : null
     };
 
     doPost(`/editar_parcela/${id}`, body, (data) => {
@@ -1818,4 +1855,21 @@ function limparSimulacao() {
             </td>
         </tr>
     `;
+}
+
+function toggleSelectCartaoEdit() {
+    const forma = document.getElementById('edit-forma-pagamento').value;
+    const divCartao = document.getElementById('div-select-cartao-edit');
+    const inputCartao = document.getElementById('edit-cartao-id');
+
+    if (forma === 'Cartão Crédito') {
+        divCartao.classList.remove('d-none');
+        if(inputCartao) inputCartao.setAttribute('required', 'required');
+    } else {
+        divCartao.classList.add('d-none');
+        if(inputCartao) {
+            inputCartao.removeAttribute('required');
+            inputCartao.value = "";
+        }
+    }
 }
