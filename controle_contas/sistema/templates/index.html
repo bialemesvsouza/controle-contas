@@ -204,6 +204,7 @@
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('extrato')"><i class='bx bx-list-ul fs-5'></i> <span class="fw-medium">Extrato Mensal</span></a></li>
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('novo')"><i class='bx bx-plus-circle fs-5'></i> <span class="fw-medium">Nova Transação</span></a></li>
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('simulacao')"><i class='bx bx-line-chart fs-5'></i> <span class="fw-medium">Simulação</span></a></li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('poupanca')"><i class='bx bx-wallet-alt fs-5'></i> <span class="fw-medium">Poupança</span></a></li>
 
                     <li class="menu-heading text-muted text-uppercase text-xs fw-bold mb-2 mt-4 px-3">Configurações</li>
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('categorias')"><i class='bx bx-cog fs-5'></i> <span class="fw-medium">Cadastros</span></a></li>
@@ -489,7 +490,7 @@
                                                 <option value="" disabled selected>Escolha um cartão...</option>
                                             </select>
                                         </div>
-                                        <div class="row g-3 mb-4">
+                                        <div class="row g-3 mb-2">
                                             <div class="col-md-6">
                                                 <label class="form-label fw-medium text-muted small">Tipo</label>
                                                 <select class="form-select bg-light border-0" id="transacao-tipo" required>
@@ -504,6 +505,14 @@
                                                 </select>
                                             </div>
                                         </div>
+                                        
+                                        <div class="mb-4 form-check mt-3" id="container-usar-poupanca">
+                                            <input type="checkbox" class="form-check-input border-primary" id="transacao-usar-poupanca">
+                                            <label class="form-check-label fw-bold text-primary small" for="transacao-usar-poupanca">
+                                                <i class='bx bx-wallet-alt'></i> Utilizar saldo da poupança 
+                                            </label>
+                                        </div>
+
                                         <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm">Salvar Transação</button>
                                     </div>
                                 </div>
@@ -540,60 +549,6 @@
                             </div>
                         </div>
                     </form>
-                </div>
-
-                <div id="view-categorias" class="view-section d-none">
-                    <div class="row g-4">
-                        <div class="col-lg-7">
-                            <div class="card border-0 shadow-sm rounded-4">
-                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
-                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-category text-primary'></i> Categorias</h5>
-                                </div>
-                                <div class="card-body p-4">
-                                    <form id="nova-categoria-form" class="row g-2 mb-4 align-items-end border-bottom pb-4">
-                                        <div class="col-md-6">
-                                            <label class="form-label text-muted small">Nova Categoria</label>
-                                            <input type="text" class="form-control bg-light border-0" id="cat-nome" placeholder="Ex: Combustível..." required>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <label class="form-label text-muted small">Tipo</label>
-                                            <select class="form-select bg-light border-0" id="cat-tipo">
-                                                <option value="despesa">Despesa</option>
-                                                <option value="receita">Receita</option>
-                                            </select>
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
-                                        </div>
-                                    </form>
-                                    <div class="row g-4">
-                                        <div class="col-md-6">
-                                            <h6 class="text-danger fw-bold border-bottom pb-2 mb-3">Despesas</h6>
-                                            <div id="lista-categorias-despesa" class="d-flex flex-column gap-2"></div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Receitas</h6>
-                                            <div id="lista-categorias-receita" class="d-flex flex-column gap-2"></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-lg-5">
-                            <div class="card border-0 shadow-sm rounded-4">
-                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
-                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-credit-card text-primary'></i> Cartões de Crédito</h5>
-                                </div>
-                                <div class="card-body p-4">
-                                    <form id="novo-cartao-form" class="d-flex gap-2 mb-4 border-bottom pb-4">
-                                        <input type="text" class="form-control bg-light border-0" id="cartao-nome" placeholder="Ex: Nubank..." required>
-                                        <button type="submit" class="btn btn-primary text-nowrap">Salvar</button>
-                                    </form>
-                                    <div id="lista-cartoes-cadastrados" class="d-flex flex-column gap-2"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div id="view-simulacao" class="view-section d-none">
@@ -680,6 +635,153 @@
                                             </tbody>
                                         </table>
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-poupanca" class="view-section d-none">
+                    <div class="row g-4">
+                        <div class="col-lg-6">
+                            <div class="card border-0 shadow-sm rounded-4" style="background: linear-gradient(135deg, #5955D1 0%, #7008E7 100%); color: white;">
+                                <div class="card-body p-4 text-center">
+                                    <i class='bx bx-wallet-alt display-3 mb-3 text-white-50'></i>
+                                    <h5 class="fw-medium mb-1 text-white">Saldo da Poupança</h5>
+                                    <h1 class="fw-bold display-4 mb-4 text-white" id="poupanca-saldo-atual">R$ 0,00</h1>
+                                    
+                                    <div class="bg-white bg-opacity-10 p-3 rounded-4 mt-4 text-start">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span class="small fw-bold">Progresso da Meta</span>
+                                            <span class="small fw-bold" id="poupanca-meta-texto">Meta: R$ 0,00</span>
+                                        </div>
+                                        <div class="progress" style="height: 10px; background-color: rgba(255,255,255,0.2);">
+                                            <div id="poupanca-barra" class="progress-bar bg-info progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-6">
+                            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h6 class="fw-bold text-dark mb-0"><i class='bx bx-target-lock text-primary'></i> Definir Meta (Opcional)</h6>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form onsubmit="salvarMetaPoupanca(event)" class="d-flex gap-2">
+                                        <input type="text" class="form-control bg-light border-0" id="poupanca-meta-input" placeholder="0,00" oninput="mascaraMilhar(event)">
+                                        <button type="submit" class="btn btn-primary px-4 fw-bold">Atualizar Meta</button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h6 class="fw-bold text-dark mb-0"><i class='bx bx-coin-stack text-success'></i> Movimentar Dinheiro</h6>
+                                    <p class="small text-muted mb-0 mt-1">Guarde dinheiro do seu saldo atual ou resgate de volta.</p>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form class="d-flex gap-2 mb-3">
+                                        <input type="text" class="form-control bg-light border-0" id="poupanca-deposito-input" placeholder="0,00" oninput="mascaraMilhar(event)">
+                                        <button type="button" class="btn btn-success px-4 fw-bold" onclick="depositarPoupanca(event)">Guardar</button>
+                                        <button type="button" class="btn btn-outline-primary px-4 fw-bold" onclick="resgatarPoupanca()">Resgatar</button>
+                                    </form>
+                                    
+                                    <hr class="my-4 text-muted">
+                                    
+                                    <div class="d-flex justify-content-between align-items-center bg-light p-3 rounded-3">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-1">Sobras Acumuladas</h6>
+                                            <p class="small text-muted mb-0">Rastreie meses onde sobrou dinheiro e mova para cá sem negativá-los.</p>
+                                        </div>
+                                        <button class="btn btn-primary btn-sm fw-bold px-3 text-nowrap" onclick="abrirModalSobras()">Ver e Puxar Sobras</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-12">
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h6 class="fw-bold text-dark mb-0"><i class='bx bx-list-ul text-primary'></i> Extrato da Poupança (Entradas e Gastos)</h6>
+                                </div>
+                                <div class="card-body p-0">
+                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                        <table class="table table-hover align-middle mb-0 text-sm text-center">
+                                            <thead class="table-light text-muted small sticky-top text-uppercase">
+                                                <tr>
+                                                    <th>Data</th>
+                                                    <th>Descrição</th>
+                                                    <th>Categoria</th>
+                                                    <th>Tipo</th>
+                                                    <th>Valor</th>
+                                                    <th></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody id="poupanca-historico-lista">
+                                                <tr>
+                                                    <td colspan="5" class="py-4 text-muted">Carregando histórico...</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-categorias" class="view-section d-none">
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-category text-primary'></i> Categorias</h5>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form id="nova-categoria-form" class="row g-2 mb-4 align-items-end border-bottom pb-4">
+                                        <div class="col-md-6">
+                                            <label class="form-label text-muted small">Nova Categoria</label>
+                                            <input type="text" class="form-control bg-light border-0" id="cat-nome" placeholder="Ex: Combustível..." required>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label text-muted small">Tipo</label>
+                                            <select class="form-select bg-light border-0" id="cat-tipo">
+                                                <option value="despesa">Despesa</option>
+                                                <option value="receita">Receita</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
+                                        </div>
+                                    </form>
+                                    <div class="row g-4">
+                                        <div class="col-md-6">
+                                            <h6 class="text-danger fw-bold border-bottom pb-2 mb-3">Despesas</h6>
+                                            <div id="lista-categorias-despesa" class="d-flex flex-column gap-2"></div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Receitas</h6>
+                                            <div id="lista-categorias-receita" class="d-flex flex-column gap-2"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5">
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-header bg-transparent border-bottom pt-4 pb-3">
+                                    <h5 class="fw-bold text-dark mb-0"><i class='bx bx-credit-card text-primary'></i> Cartões de Crédito</h5>
+                                </div>
+                                <div class="card-body p-4">
+                                    <form id="novo-cartao-form" class="d-flex gap-2 mb-4 border-bottom pb-4">
+                                        <input type="text" class="form-control bg-light border-0" id="cartao-nome" placeholder="Ex: Nubank..." required>
+                                        <button type="submit" class="btn btn-primary text-nowrap">Salvar</button>
+                                    </form>
+                                    <div id="lista-cartoes-cadastrados" class="d-flex flex-column gap-2"></div>
                                 </div>
                             </div>
                         </div>
@@ -866,6 +968,58 @@
             </div>
         </div>
     </div>
+
+    <div id="modal-sobras" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center;">
+        <div class="card border-0 shadow-lg rounded-4 w-100 mx-3" style="max-width: 450px;">
+            <div class="card-header bg-white border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="fw-bold mb-0 text-dark">Puxar Sobras</h5>
+                <button type="button" class="btn-close" onclick="fecharModalSobras()"></button>
+            </div>
+            <div class="card-body p-4 text-center">
+                <p class="text-muted small">Vasculhamos todos os seus meses anteriores. Abaixo está o valor total que sobrou (receitas recebidas - despesas pagas).</p>
+                
+                <span class="text-muted fw-bold d-block mt-3 mb-1">Total Disponível:</span>
+                <h2 class="fw-bold text-success mb-4" id="sobras-valor-disponivel">R$ 0,00</h2>
+                
+                <div class="mb-4 text-start">
+                    <label class="form-label text-muted small fw-medium">Quanto deseja enviar para a Poupança? (R$)</label>
+                    <input type="text" class="form-control bg-light border-0 text-center fs-5 fw-bold text-dark" id="sobras-valor-input" placeholder="0,00" oninput="mascaraMilhar(event)">
+                </div>
+                
+                <button id="btn-puxar-sobras" class="btn btn-primary w-100 py-2 fw-bold" onclick="executarPuxarSobras()">Transferir para Poupança</button>
+            </div>
+        </div>
+    </div>
+    <div id="modal-editar-historico-poupanca" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2500; display:flex; align-items:center; justify-content:center;">
+        <div class="card border-0 shadow-lg rounded-4 w-100 mx-3" style="max-width: 400px;">
+            <div class="card-header bg-white border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="fw-bold mb-0 text-dark">Editar Movimentação</h5>
+                <button type="button" class="btn-close" onclick="fecharModalEditarHistorico()"></button>
+            </div>
+            <div class="card-body p-4">
+                <form id="form-editar-historico" onsubmit="salvarEdicaoHistorico(event)">
+                    <input type="hidden" id="edit-hist-id">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Descrição</label>
+                        <input type="text" class="form-control bg-light border-0" id="edit-hist-descricao" required>
+                    </div>
+                    <div class="mb-3 form-group">
+                        <label class="form-label small text-muted">Valor (R$)</label>
+                        <input type="text" class="form-control bg-light border-0 fw-bold" id="edit-hist-valor" required oninput="mascaraMilhar(event)">
+                    </div>
+                    <div class="mb-4 form-group">
+                        <label class="form-label small text-muted">Data</label>
+                        <input type="date" class="form-control bg-light border-0" id="edit-hist-data" required>
+                    </div>
+                    <div class="d-flex justify-content-end gap-2 pt-3 border-top">
+                        <button type="button" class="btn btn-light px-4" onclick="fecharModalEditarHistorico()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4">Salvar Alterações</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
 
     <script src="/static/script.js"></script>
 </body>

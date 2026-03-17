@@ -9,6 +9,7 @@ let parcelasAtuais = [];
 let filtroTipoExtrato = 'despesa';
 let todasCategorias = [];
 let todosCartoes = [];
+let historicoPoupancaAtual = [];
 
 // Variáveis dos Gráficos e Calendário
 let chartDespesas = null;
@@ -56,6 +57,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('transacao-tipo').addEventListener('change', function() {
         atualizarSelectCategorias(this.value);
+        
+        // Mostrar checkbox da poupança apenas se for despesa
+        const containerPoupanca = document.getElementById('container-usar-poupanca');
+        if (containerPoupanca) {
+            if (this.value === 'despesa') {
+                containerPoupanca.classList.remove('d-none');
+            } else {
+                containerPoupanca.classList.add('d-none');
+                document.getElementById('transacao-usar-poupanca').checked = false;
+            }
+        }
     });
 });
 
@@ -131,13 +143,15 @@ function navegarPara(tela) {
         'extrato': 'Extrato Mensal',
         'novo': 'Nova Transação',
         'categorias': 'Cadastros',
-        'simulacao': 'Simulador de Contas'
+        'simulacao': 'Simulador de Contas',
+        'poupanca': 'Sua Poupança'
     };
     const titleElement = document.querySelector('.page-title');
     if(titleElement) titleElement.textContent = titulos[tela] || 'SmartGrana';
 
     if(tela === 'dashboard') { loadDashboard(); carregarDadosExtrasDashboard(); }
     if(tela === 'extrato') loadParcelas();
+    if(tela === 'poupanca') loadPoupanca();
     if(tela === 'novo' || tela === 'categorias') {
         loadCategorias(tela === 'categorias');
         loadCartoes();
@@ -928,6 +942,10 @@ async function handleNovaTransacao(e) {
     const catId = document.getElementById('transacao-tipo-categoria').value;
     const formaPagamento = document.getElementById('transacao-forma-pagamento').value;
     const idCartao = document.getElementById('transacao-cartao-id').value;
+    
+    // Obtem o valor do checkbox de usar poupança
+    const chkPoupanca = document.getElementById('transacao-usar-poupanca');
+    const usar_poupanca = chkPoupanca ? chkPoupanca.checked : false;
 
     if(!catId || isNaN(catId)) {
         showNotification('Selecione uma categoria válida', 'error');
@@ -947,7 +965,8 @@ async function handleNovaTransacao(e) {
         datas_parcelas: listaDatas,
         valores_parcelas: listaValores,
         forma_pagamento: formaPagamento,
-        id_cartao: idCartao ? parseInt(idCartao) : null
+        id_cartao: idCartao ? parseInt(idCartao) : null,
+        usar_poupanca: usar_poupanca
     };
 
     doPost('/nova_transacao', body, (data) => {
@@ -957,6 +976,15 @@ async function handleNovaTransacao(e) {
         toggleSelectCartao();
         document.getElementById('transacao-tipo').value = 'despesa';
         atualizarSelectCategorias('despesa');
+        
+        const containerPoupanca = document.getElementById('container-usar-poupanca');
+        if (containerPoupanca) {
+            containerPoupanca.classList.remove('d-none');
+        }
+        if (chkPoupanca) {
+            chkPoupanca.checked = false;
+        }
+
         navegarPara('extrato');
     });
 }
@@ -1767,5 +1795,220 @@ function salvarReparcelamento() {
         loadParcelas();
         loadDashboard();
         carregarDadosExtrasDashboard();
+    });
+}
+
+// ==========================================
+// LÓGICA DA POUPANÇA
+// ==========================================
+async function loadPoupanca() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/poupanca`);
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('poupanca-saldo-atual').textContent = formatarMoeda(data.saldo);
+            
+            let textoMeta = 'Sem meta definida';
+            let percentual = 0;
+            if (data.meta > 0) {
+                textoMeta = `Meta: ${formatarMoeda(data.meta)}`;
+                percentual = (data.saldo / data.meta) * 100;
+                if (percentual > 100) percentual = 100;
+                document.getElementById('poupanca-meta-input').value = formatarValorInput(data.meta);
+            }
+            
+            document.getElementById('poupanca-meta-texto').textContent = textoMeta;
+            document.getElementById('poupanca-barra').style.width = `${percentual}%`;
+        }
+        loadHistoricoPoupanca();
+    } catch (e) { console.error("Erro ao carregar poupança", e); }
+}
+
+function salvarMetaPoupanca(e) {
+    e.preventDefault();
+    const metaStr = document.getElementById('poupanca-meta-input').value;
+    const meta = limparFormatacao(metaStr);
+    
+    doPost('/api/poupanca/meta', { meta: meta }, (data) => {
+        showNotification(data.mensagem);
+        loadPoupanca();
+    });
+}
+
+function depositarPoupanca(e) {
+    if (e) e.preventDefault();
+    const valorStr = document.getElementById('poupanca-deposito-input').value;
+    const valor = limparFormatacao(valorStr);
+    
+    if (valor <= 0) {
+        showNotification("Digite um valor válido para depositar.", "error");
+        return;
+    }
+    
+    abrirConfirmacao(`Deseja retirar ${formatarMoeda(valor)} das receitas deste mês para guardar na Poupança?`, () => {
+        doPost('/api/poupanca/depositar', { valor: valor }, (data) => {
+            showNotification(data.mensagem);
+            document.getElementById('poupanca-deposito-input').value = '';
+            loadPoupanca();
+        });
+    });
+}
+
+function resgatarPoupanca() {
+    const valorStr = document.getElementById('poupanca-deposito-input').value;
+    const valor = limparFormatacao(valorStr);
+    
+    if (valor <= 0) {
+        showNotification("Digite um valor válido para resgatar.", "error");
+        return;
+    }
+    
+    abrirConfirmacao(`Deseja resgatar ${formatarMoeda(valor)} da poupança para o saldo do mês atual?`, () => {
+        doPost('/api/poupanca/resgatar', { valor: valor }, (data) => {
+            showNotification(data.mensagem);
+            document.getElementById('poupanca-deposito-input').value = '';
+            loadPoupanca();
+        });
+    });
+}
+
+async function abrirModalSobras() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/poupanca/sobras`);
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById('sobras-valor-disponivel').textContent = formatarMoeda(data.sobras_disponiveis);
+            
+            const inputValor = document.getElementById('sobras-valor-input');
+            inputValor.value = '';
+            
+            const btn = document.getElementById('btn-puxar-sobras');
+            if (data.sobras_disponiveis <= 0) {
+                btn.disabled = true;
+                btn.textContent = "Nenhuma sobra encontrada";
+                btn.classList.replace('btn-primary', 'btn-secondary');
+                inputValor.disabled = true;
+            } else {
+                btn.disabled = false;
+                btn.textContent = "Transferir para Poupança";
+                btn.classList.replace('btn-secondary', 'btn-primary');
+                inputValor.disabled = false;
+            }
+            
+            document.getElementById('modal-sobras').classList.remove('d-none');
+        }
+    } catch (e) {
+        showNotification("Erro ao buscar as sobras", "error");
+    }
+}
+
+function fecharModalSobras() {
+    document.getElementById('modal-sobras').classList.add('d-none');
+}
+
+function executarPuxarSobras() {
+    const valorStr = document.getElementById('sobras-valor-input').value;
+    const valor = limparFormatacao(valorStr);
+    
+    if (valor <= 0) {
+        showNotification("Digite um valor válido a ser resgatado.", "error");
+        return;
+    }
+    
+    const btn = document.getElementById('btn-puxar-sobras');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processando...`;
+
+    doPost('/api/poupanca/puxar_sobras', { valor: valor }, (data) => {
+        showNotification(data.mensagem, 'success');
+        fecharModalSobras();
+        loadPoupanca();
+    });
+}
+
+async function loadHistoricoPoupanca() {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/poupanca/historico`);
+        if (res.ok) {
+            historicoPoupancaAtual = await res.json(); 
+            const tbody = document.getElementById('poupanca-historico-lista');
+            tbody.innerHTML = '';
+            
+            if(historicoPoupancaAtual.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="py-5 text-muted"><i class="bx bx-info-circle fs-3 d-block mb-2"></i> Nenhuma movimentação registrada na poupança.</td></tr>';
+                return;
+            }
+
+            historicoPoupancaAtual.forEach((h, index) => {
+                const dataParts = h.data.split('-');
+                const dataDisplay = `${dataParts[2]}/${dataParts[1]}/${dataParts[0]}`;
+                
+                let cor = h.tipo === 'entrada' ? 'text-success' : 'text-danger';
+                let sinal = h.tipo === 'entrada' ? '+' : '-';
+                let badge = h.tipo === 'entrada' 
+                    ? '<span class="badge bg-success-subtle text-success border border-success">Entrada</span>' 
+                    : '<span class="badge bg-danger-subtle text-danger border border-danger">Gasto / Saída</span>';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="fw-medium text-muted">${dataDisplay}</td>
+                        <td class="fw-bold text-dark">${h.descricao}</td>
+                        <td><span class="badge bg-light text-dark border">${h.categoria}</span></td>
+                        <td>${badge}</td>
+                        <td class="fw-bold ${cor}">${sinal} ${formatarMoeda(h.valor)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-light text-primary p-1" onclick="abrirModalEditarHistorico(${index})"><i class='bx bx-edit'></i></button>
+                            <button class="btn btn-sm btn-light text-danger p-1" onclick="excluirHistoricoPoupanca(${h.id})"><i class='bx bx-trash'></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+    } catch (e) { console.error("Erro ao carregar histórico da poupança", e); }
+}
+
+function excluirHistoricoPoupanca(id) {
+    abrirConfirmacao("Tem certeza que deseja excluir esta movimentação? Seu saldo da poupança será recalculado automaticamente.", () => {
+        fetch(`${API_BASE_URL}/api/poupanca/historico/${id}`, { method: 'DELETE' })
+        .then(res => res.json())
+        .then(data => {
+            if(data.erro) showNotification(data.erro, 'error');
+            else {
+                showNotification(data.mensagem, 'success');
+                loadPoupanca(); // Atualiza a tela
+            }
+        })
+        .catch(() => showNotification('Erro ao excluir registro', 'error'));
+    });
+}
+
+function abrirModalEditarHistorico(index) {
+    const h = historicoPoupancaAtual[index];
+    document.getElementById('edit-hist-id').value = h.id;
+    document.getElementById('edit-hist-descricao').value = h.descricao;
+    document.getElementById('edit-hist-valor').value = formatarValorInput(h.valor);
+    document.getElementById('edit-hist-data').value = h.data;
+    
+    document.getElementById('modal-editar-historico-poupanca').classList.remove('d-none');
+}
+
+function fecharModalEditarHistorico() {
+    document.getElementById('modal-editar-historico-poupanca').classList.add('d-none');
+}
+
+function salvarEdicaoHistorico(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-hist-id').value;
+    
+    const body = {
+        descricao: document.getElementById('edit-hist-descricao').value,
+        valor: limparFormatacao(document.getElementById('edit-hist-valor').value),
+        data: document.getElementById('edit-hist-data').value
+    };
+
+    doPost(`/api/poupanca/historico/${id}`, body, (data) => {
+        showNotification(data.mensagem, 'success');
+        fecharModalEditarHistorico();
+        loadPoupanca(); // Atualiza os saldos e a tabela
     });
 }

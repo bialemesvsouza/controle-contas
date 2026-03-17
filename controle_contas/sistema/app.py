@@ -62,6 +62,22 @@ class Parcela(db.Model):
     status = db.Column(db.String(20), default='a_pagar')
     data_pagamento = db.Column(db.Date, nullable=True)
 
+class Poupanca(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id'), unique=True, nullable=False)
+    saldo = db.Column(db.Float, default=0.0)
+    meta = db.Column(db.Float, nullable=True, default=0.0)
+
+class HistoricoPoupanca(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id'))
+    descricao = db.Column(db.String(200))
+    categoria = db.Column(db.String(50))
+    valor = db.Column(db.Float)
+    tipo = db.Column(db.String(20)) 
+    data_registro = db.Column(db.Date, default=lambda: datetime.now().date())
+
+
 @login_manager.user_loader
 def load_user(user_id):
     return Usuario.query.get(int(user_id))
@@ -141,6 +157,11 @@ def register():
     db.session.add(novo_user)
     db.session.commit()
 
+    # Cria a carteira de poupança vazia para o novo usuário
+    nova_poupanca = Poupanca(id_usuario=novo_user.id, saldo=0.0, meta=0.0)
+    db.session.add(nova_poupanca)
+    db.session.commit()
+
     padroes = [
         ('Salário', 'receita'), ('Alimentação', 'despesa'),
         ('Transporte', 'despesa'), ('Moradia', 'despesa'), ('Lazer', 'despesa')
@@ -212,6 +233,10 @@ def excluir_tipo(id_tipo):
     if not tipo:
         return jsonify({"erro": "Categoria não encontrada ou acesso negado"}), 404
 
+    # Trava de segurança com os novos nomes
+    if tipo.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
+        return jsonify({"erro": "Esta é uma categoria vinculada ao sistema e não pode ser excluída."}), 400
+
     uso = Transacao.query.filter_by(id_tipo=id_tipo).first()
     if uso:
         return jsonify({"erro": "Não é possível excluir: Categoria em uso por transações."}), 400
@@ -219,7 +244,6 @@ def excluir_tipo(id_tipo):
     db.session.delete(tipo)
     db.session.commit()
     return jsonify({"mensagem": "Categoria excluída."})
-
 # --- ROTAS DE CARTÕES ---
 
 @app.route('/api/cartoes', methods=['GET'])
@@ -272,6 +296,63 @@ def nova_transacao():
     id_cartao = None
     if dados.get('forma_pagamento') == 'Cartão Crédito':
         id_cartao = dados.get('id_cartao')
+
+    usar_poupanca = dados.get('usar_poupanca', False)
+    valor_transacao = float(dados['valor'])
+    valores_parcelas = dados.get('valores_parcelas', [])
+
+    if tipo_check.nome == 'ENVIAR POUPANÇA':
+        poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+        poupanca.saldo += valor_transacao
+        data_gasto = datetime.strptime(dados['datas_parcelas'][0], '%Y-%m-%d').date() if dados.get('datas_parcelas') else datetime.now().date()
+        hist = HistoricoPoupanca(id_usuario=current_user.id, descricao=dados['descricao'], categoria='Transferência', valor=valor_transacao, tipo='entrada', data_registro=data_gasto)
+        db.session.add(hist)
+        usar_poupanca = False 
+
+    elif tipo_check.nome == 'RESGATAR POUPANÇA':
+        poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+        if not poupanca or poupanca.saldo < valor_transacao:
+            return jsonify({"erro": "Saldo insuficiente na poupança para realizar este resgate!"}), 400
+        poupanca.saldo -= valor_transacao
+        data_gasto = datetime.strptime(dados['datas_parcelas'][0], '%Y-%m-%d').date() if dados.get('datas_parcelas') else datetime.now().date()
+        hist = HistoricoPoupanca(id_usuario=current_user.id, descricao=dados['descricao'], categoria='Transferência', valor=valor_transacao, tipo='saida', data_registro=data_gasto)
+        db.session.add(hist)
+
+    elif usar_poupanca and dados['tipo'] == 'despesa':
+        poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+        
+        if poupanca and poupanca.saldo > 0:
+            desconto = min(poupanca.saldo, valor_transacao)
+            
+            poupanca.saldo -= desconto
+            valor_transacao -= desconto
+
+            data_gasto = datetime.strptime(dados['datas_parcelas'][0], '%Y-%m-%d').date() if dados.get('datas_parcelas') else datetime.now().date()
+            historico = HistoricoPoupanca(
+                id_usuario=current_user.id,
+                descricao=dados['descricao'],
+                categoria=tipo_check.nome,
+                valor=desconto,
+                tipo='saida',
+                data_registro=data_gasto
+            )
+            db.session.add(historico)
+            
+            if valor_transacao <= 0:
+                db.session.commit()
+                return jsonify({"mensagem": f"Despesa de R$ {desconto:.2f} coberta 100% pela Poupança!"})
+            
+            qtd = len(valores_parcelas)
+            if qtd > 0:
+                novo_valor_base = round(valor_transacao / qtd, 2)
+                for i in range(qtd):
+                    if i == qtd - 1:
+                        valores_parcelas[i] = round(valor_transacao - (novo_valor_base * (qtd - 1)), 2)
+                    else:
+                        valores_parcelas[i] = novo_valor_base
+            
+            dados['valor'] = valor_transacao
+            dados['valores_parcelas'] = valores_parcelas
 
     nova = Transacao(
         id_usuario=current_user.id,
@@ -404,13 +485,46 @@ def editar_parcela(id_parcela):
     if not parcela or parcela.id_usuario != current_user.id:
         return jsonify({"erro": "Parcela não encontrada"}), 404
 
-    parcela.valor = float(dados['valor'])
+    novo_valor = float(dados['valor'])
+    diferenca = novo_valor - parcela.valor
+
+    if 'id_categoria' in dados and dados['id_categoria']:
+        novo_id_tipo = int(dados['id_categoria'])
+        tipo_atual = parcela.transacao.tipo
+        novo_tipo_obj = Tipo.query.get(novo_id_tipo)
+        
+        if tipo_atual.id != novo_id_tipo:
+            if tipo_atual.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA'] or novo_tipo_obj.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
+                return jsonify({"erro": "Não é permitido alterar para ou de categorias da Poupança na edição. Exclua a conta e crie novamente."}), 400
+        parcela.transacao.id_tipo = novo_id_tipo
+
+    if parcela.transacao.tipo and parcela.transacao.tipo.nome == 'ENVIAR POUPANÇA':
+        poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+        if poupanca: 
+            poupanca.saldo += diferenca
+    elif parcela.transacao.tipo and parcela.transacao.tipo.nome == 'RESGATAR POUPANÇA':
+        poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+        if poupanca:
+            if diferenca > poupanca.saldo:
+                return jsonify({"erro": "Saldo da poupança insuficiente para aumentar este resgate"}), 400
+            poupanca.saldo -= diferenca
+
+    if parcela.transacao.tipo and parcela.transacao.tipo.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
+        hist = HistoricoPoupanca.query.filter(
+            HistoricoPoupanca.id_usuario == current_user.id,
+            HistoricoPoupanca.descricao == parcela.transacao.descricao
+        ).filter(func.abs(HistoricoPoupanca.valor - parcela.valor) < 0.01).first()
+        
+        if hist:
+            hist.valor = novo_valor
+            hist.descricao = dados['descricao']
+            
+        parcela.transacao.valor_total = novo_valor
+
+    parcela.valor = novo_valor
     parcela.vencimento = datetime.strptime(dados['vencimento'], '%Y-%m-%d').date()
     parcela.status = dados['status']
     parcela.transacao.descricao = dados['descricao']
-
-    if 'id_categoria' in dados and dados['id_categoria']:
-        parcela.transacao.id_tipo = int(dados['id_categoria'])
 
     if 'forma_pagamento' in dados:
         parcela.transacao.forma_pagamento = dados['forma_pagamento']
@@ -434,7 +548,31 @@ def excluir_parcela(id_parcela):
     if not parcela or parcela.id_usuario != current_user.id:
         return jsonify({"erro": "Parcela não encontrada"}), 404
 
+    transacao = parcela.transacao
+    is_poupanca = False
+
+    if transacao.tipo:
+        if transacao.tipo.nome == 'ENVIAR POUPANÇA':
+            poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+            if poupanca: 
+                poupanca.saldo = max(0, poupanca.saldo - parcela.valor)
+            is_poupanca = True
+
+        if transacao.tipo.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
+            is_poupanca = True
+           
+            hist = HistoricoPoupanca.query.filter(
+                HistoricoPoupanca.id_usuario == current_user.id,
+                HistoricoPoupanca.descricao == transacao.descricao
+            ).filter(func.abs(HistoricoPoupanca.valor - parcela.valor) < 0.01).first()
+            if hist:
+                db.session.delete(hist)
+
     db.session.delete(parcela)
+
+    if is_poupanca:
+        db.session.delete(transacao)
+
     db.session.commit()
     return jsonify({"mensagem": "Parcela excluída com sucesso!"})
 
@@ -581,6 +719,20 @@ def excluir_transacao(id_transacao):
     if not transacao:
         return jsonify({"erro": "Transação não encontrada"}), 404
     
+    if transacao.tipo:
+        if transacao.tipo.nome == 'ENVIAR POUPANÇA':
+            poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+            if poupanca: 
+                poupanca.saldo = max(0, poupanca.saldo - transacao.valor_total)
+                
+        if transacao.tipo.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
+            hist = HistoricoPoupanca.query.filter(
+                HistoricoPoupanca.id_usuario == current_user.id,
+                HistoricoPoupanca.descricao == transacao.descricao
+            ).filter(func.abs(HistoricoPoupanca.valor - transacao.valor_total) < 0.01).first()
+            if hist:
+                db.session.delete(hist)
+
     db.session.delete(transacao)
     db.session.commit()
     return jsonify({"mensagem": "Fluxo cancelado e parcelas excluídas com sucesso!"})
@@ -608,6 +760,308 @@ def reparcelar_transacao(id_transacao):
     gerar_parcelas_customizadas(transacao, novas_datas, novos_valores)
     
     return jsonify({"mensagem": "Reparcelamento concluído com sucesso!"})
+
+# --- ROTAS DA POUPANÇA ---
+
+@app.route('/api/poupanca', methods=['GET'])
+@login_required
+def get_poupanca():
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    if not poupanca:
+        poupanca = Poupanca(id_usuario=current_user.id, saldo=0.0, meta=0.0)
+        db.session.add(poupanca)
+        db.session.commit()
+    return jsonify({"saldo": poupanca.saldo, "meta": poupanca.meta})
+
+@app.route('/api/poupanca/meta', methods=['POST'])
+@login_required
+def definir_meta_poupanca():
+    meta = float(request.json.get('meta', 0))
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    poupanca.meta = meta
+    db.session.commit()
+    return jsonify({"mensagem": "Meta atualizada com sucesso!"})
+
+@app.route('/api/poupanca/depositar', methods=['POST'])
+@login_required
+def depositar_poupanca():
+    valor = float(request.json.get('valor', 0))
+    if valor <= 0:
+        return jsonify({"erro": "Valor inválido"}), 400
+        
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    poupanca.saldo += valor
+    
+    tipo_cat = Tipo.query.filter_by(id_usuario=current_user.id, categoria='despesa', nome='ENVIAR POUPANÇA').first()
+    if not tipo_cat:
+        tipo_cat = Tipo(nome='ENVIAR POUPANÇA', categoria='despesa', id_usuario=current_user.id)
+        db.session.add(tipo_cat)
+        db.session.commit()
+        
+    nova_transacao = Transacao(
+        id_usuario=current_user.id, id_tipo=tipo_cat.id,
+        descricao='Depósito na Poupança', valor_total=valor, qtd_parcelas=1,
+        tipo_transacao='despesa', forma_pagamento='Transferência Bancária'
+    )
+    db.session.add(nova_transacao)
+    db.session.commit()
+    
+    hoje = datetime.now().date()
+    nova_parcela = Parcela(
+        id_transacao=nova_transacao.id, id_usuario=current_user.id,
+        numero_parcela=1, valor=valor, vencimento=hoje,
+        status='pago', data_pagamento=hoje
+    )
+    db.session.add(nova_parcela)
+
+    hist = HistoricoPoupanca(id_usuario=current_user.id, descricao='Depósito na Poupança', categoria='Poupança', valor=valor, tipo='entrada')
+    db.session.add(hist)
+
+    db.session.commit()
+    return jsonify({"mensagem": "Valor guardado na poupança!"})
+
+@app.route('/api/poupanca/resgatar', methods=['POST'])
+@login_required
+def resgatar_poupanca():
+    valor = float(request.json.get('valor', 0))
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    
+    if valor <= 0 or not poupanca or valor > poupanca.saldo:
+        return jsonify({"erro": "Valor inválido ou saldo da poupança insuficiente"}), 400
+        
+    poupanca.saldo -= valor
+    
+    tipo_cat = Tipo.query.filter_by(id_usuario=current_user.id, categoria='receita', nome='RESGATAR POUPANÇA').first()
+    if not tipo_cat:
+        tipo_cat = Tipo(nome='RESGATAR POUPANÇA', categoria='receita', id_usuario=current_user.id)
+        db.session.add(tipo_cat)
+        db.session.commit()
+        
+    nova_transacao = Transacao(
+        id_usuario=current_user.id, id_tipo=tipo_cat.id,
+        descricao='Resgate da Poupança', valor_total=valor, qtd_parcelas=1,
+        tipo_transacao='receita', forma_pagamento='Transferência Bancária'
+    )
+    db.session.add(nova_transacao)
+    db.session.commit()
+    
+    hoje = datetime.now().date()
+    nova_parcela = Parcela(
+        id_transacao=nova_transacao.id, id_usuario=current_user.id,
+        numero_parcela=1, valor=valor, vencimento=hoje,
+        status='recebido', data_pagamento=hoje
+    )
+    db.session.add(nova_parcela)
+
+    hist = HistoricoPoupanca(id_usuario=current_user.id, descricao='Resgate da Poupança', categoria='Poupança', valor=valor, tipo='saida')
+    db.session.add(hist)
+
+    db.session.commit()
+    return jsonify({"mensagem": f"Resgate de R$ {valor:.2f} realizado com sucesso!"})
+
+@app.route('/api/poupanca/sobras', methods=['GET'])
+@login_required
+def verificar_sobras():
+    hoje = datetime.now().date()
+    inicio_proximo_mes = hoje.replace(day=1) + relativedelta(months=1)
+
+    parcelas = Parcela.query.join(Transacao).filter(
+        Parcela.id_usuario == current_user.id,
+        Parcela.vencimento < inicio_proximo_mes
+    ).all()
+    
+    meses = {}
+    for p in parcelas:
+        mes = p.vencimento.strftime('%Y-%m')
+        if mes not in meses:
+            meses[mes] = 0.0
+        if p.transacao.tipo_transacao == 'receita':
+            meses[mes] += p.valor
+        else:
+            meses[mes] -= p.valor
+            
+    sobras_disponiveis = sum(dados for dados in meses.values() if dados > 0.01)
+    return jsonify({"sobras_disponiveis": sobras_disponiveis})
+
+@app.route('/api/poupanca/puxar_sobras', methods=['POST'])
+@login_required
+def puxar_sobras():
+    valor_desejado = float(request.json.get('valor', 0))
+    if valor_desejado <= 0:
+        return jsonify({"erro": "Valor inválido"}), 400
+
+    hoje = datetime.now().date()
+    inicio_proximo_mes = hoje.replace(day=1) + relativedelta(months=1)
+
+    parcelas = Parcela.query.join(Transacao).filter(
+        Parcela.id_usuario == current_user.id,
+        Parcela.vencimento < inicio_proximo_mes
+    ).all()
+    
+    meses = {}
+    for p in parcelas:
+        mes = p.vencimento.strftime('%Y-%m')
+        if mes not in meses:
+            meses[mes] = {"saldo": 0.0, "data_ref": p.vencimento}
+        if p.transacao.tipo_transacao == 'receita':
+            meses[mes]["saldo"] += p.valor
+        else:
+            meses[mes]["saldo"] -= p.valor
+            
+    sobras_disponiveis = sum(dados["saldo"] for dados in meses.values() if dados["saldo"] > 0.01)
+    if valor_desejado > sobras_disponiveis:
+        return jsonify({"erro": "O valor solicitado é maior que as sobras reais disponíveis."}), 400
+            
+    tipo_cat = Tipo.query.filter_by(id_usuario=current_user.id, categoria='despesa', nome='ENVIAR POUPANÇA').first()
+    if not tipo_cat:
+        tipo_cat = Tipo(nome='ENVIAR POUPANÇA', categoria='despesa', id_usuario=current_user.id)
+        db.session.add(tipo_cat)
+        db.session.commit()
+
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    valor_restante = valor_desejado
+    
+    for mes, dados in meses.items():
+        if valor_restante <= 0:
+            break
+            
+        saldo_mes = dados["saldo"]
+        if saldo_mes > 0.01: 
+            valor_a_transferir = min(saldo_mes, valor_restante)
+            descricao_str = f'Transferência de Sobra - {mes}'
+            
+            nova_transacao = Transacao(
+                id_usuario=current_user.id, id_tipo=tipo_cat.id,
+                descricao=descricao_str, valor_total=valor_a_transferir, qtd_parcelas=1,
+                tipo_transacao='despesa', forma_pagamento='Transferência Bancária'
+            )
+            db.session.add(nova_transacao)
+            db.session.commit()
+            
+            nova_parcela = Parcela(
+                id_transacao=nova_transacao.id, id_usuario=current_user.id,
+                numero_parcela=1, valor=valor_a_transferir, vencimento=dados["data_ref"],
+                status='pago', data_pagamento=dados["data_ref"]
+            )
+            db.session.add(nova_parcela)
+            
+            poupanca.saldo += valor_a_transferir
+            valor_restante -= valor_a_transferir
+            
+            hist = HistoricoPoupanca(id_usuario=current_user.id, descricao=descricao_str, categoria='Poupança', valor=valor_a_transferir, tipo='entrada')
+            db.session.add(hist)
+
+    db.session.commit()
+    return jsonify({"mensagem": f"R$ {valor_desejado:.2f} resgatados das sobras reais com sucesso!"})
+
+
+@app.route('/api/poupanca/historico', methods=['GET'])
+@login_required
+def historico_poupanca():
+    historico = HistoricoPoupanca.query.filter_by(id_usuario=current_user.id).order_by(HistoricoPoupanca.data_registro.desc(), HistoricoPoupanca.id.desc()).all()
+    lista = []
+    for h in historico:
+        lista.append({
+            "id": h.id,
+            "descricao": h.descricao,
+            "categoria": h.categoria,
+            "valor": h.valor,
+            "tipo": h.tipo,
+            "data": str(h.data_registro)
+        })
+    return jsonify(lista)
+
+@app.route('/api/poupanca/historico/<int:id_historico>', methods=['DELETE'])
+@login_required
+def excluir_historico_poupanca(id_historico):
+    hist = HistoricoPoupanca.query.filter_by(id=id_historico, id_usuario=current_user.id).first()
+    if not hist:
+        return jsonify({"erro": "Registro não encontrado"}), 404
+        
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    if poupanca:
+        if hist.tipo == 'entrada':
+            poupanca.saldo = max(0, poupanca.saldo - hist.valor)
+        else: 
+            poupanca.saldo += hist.valor
+            
+    transacao_vinculada = Transacao.query.join(Tipo).filter(
+        Transacao.id_usuario == current_user.id,
+        Transacao.descricao == hist.descricao,
+        Tipo.nome.in_(['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA'])
+    ).first()
+    
+    if not transacao_vinculada:
+        transacao_vinculada = Transacao.query.filter(
+            Transacao.id_usuario == current_user.id,
+            Transacao.descricao == hist.descricao
+        ).filter(func.abs(Transacao.valor_total - hist.valor) < 0.01).first()
+
+    if transacao_vinculada:
+        db.session.delete(transacao_vinculada) 
+            
+    db.session.delete(hist)
+    db.session.commit()
+    return jsonify({"mensagem": "Registro excluído e saldo restaurado!"})
+
+@app.route('/api/poupanca/historico/<int:id_historico>', methods=['POST'])
+@login_required
+def editar_historico_poupanca(id_historico):
+    hist = HistoricoPoupanca.query.filter_by(id=id_historico, id_usuario=current_user.id).first()
+    if not hist:
+        return jsonify({"erro": "Registro não encontrado"}), 404
+        
+    dados = request.json
+    novo_valor = float(dados.get('valor', hist.valor))
+    nova_descricao = dados.get('descricao', hist.descricao)
+    
+    transacao_vinculada = Transacao.query.join(Tipo).filter(
+        Transacao.id_usuario == current_user.id,
+        Transacao.descricao == hist.descricao,
+        Tipo.nome.in_(['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA'])
+    ).first()
+    
+    if not transacao_vinculada:
+        transacao_vinculada = Transacao.query.filter(
+            Transacao.id_usuario == current_user.id,
+            Transacao.descricao == hist.descricao
+        ).filter(func.abs(Transacao.valor_total - hist.valor) < 0.01).first()
+
+    poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
+    if poupanca:
+        if hist.tipo == 'entrada':
+            poupanca.saldo -= hist.valor
+        else:
+            poupanca.saldo += hist.valor
+            
+        if hist.tipo == 'entrada':
+            poupanca.saldo += novo_valor
+        else:
+            if novo_valor > poupanca.saldo:
+                db.session.rollback()
+                return jsonify({"erro": "Saldo insuficiente na poupança para este valor"}), 400
+            poupanca.saldo -= novo_valor
+            
+        if poupanca.saldo < 0:
+            poupanca.saldo = 0
+
+    if transacao_vinculada:
+        transacao_vinculada.descricao = nova_descricao
+        transacao_vinculada.valor_total = novo_valor 
+        parcela = Parcela.query.filter_by(id_transacao=transacao_vinculada.id).first()
+        if parcela:
+            parcela.valor = novo_valor
+
+    hist.descricao = nova_descricao
+    hist.valor = novo_valor
+    try:
+        hist.data_registro = datetime.strptime(dados.get('data'), '%Y-%m-%d').date()
+    except ValueError:
+        pass
+
+    db.session.commit()
+    return jsonify({"mensagem": "Registro da poupança atualizado!"})
+
 
 if __name__ == '__main__':
     with app.app_context():
