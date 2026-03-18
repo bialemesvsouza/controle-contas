@@ -57,17 +57,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('transacao-tipo').addEventListener('change', function() {
         atualizarSelectCategorias(this.value);
-        
-        // Mostrar checkbox da poupança apenas se for despesa
-        const containerPoupanca = document.getElementById('container-usar-poupanca');
-        if (containerPoupanca) {
-            if (this.value === 'despesa') {
-                containerPoupanca.classList.remove('d-none');
-            } else {
-                containerPoupanca.classList.add('d-none');
-                document.getElementById('transacao-usar-poupanca').checked = false;
-            }
-        }
     });
 });
 
@@ -942,10 +931,6 @@ async function handleNovaTransacao(e) {
     const catId = document.getElementById('transacao-tipo-categoria').value;
     const formaPagamento = document.getElementById('transacao-forma-pagamento').value;
     const idCartao = document.getElementById('transacao-cartao-id').value;
-    
-    // Obtem o valor do checkbox de usar poupança
-    const chkPoupanca = document.getElementById('transacao-usar-poupanca');
-    const usar_poupanca = chkPoupanca ? chkPoupanca.checked : false;
 
     if(!catId || isNaN(catId)) {
         showNotification('Selecione uma categoria válida', 'error');
@@ -965,8 +950,7 @@ async function handleNovaTransacao(e) {
         datas_parcelas: listaDatas,
         valores_parcelas: listaValores,
         forma_pagamento: formaPagamento,
-        id_cartao: idCartao ? parseInt(idCartao) : null,
-        usar_poupanca: usar_poupanca
+        id_cartao: idCartao ? parseInt(idCartao) : null
     };
 
     doPost('/nova_transacao', body, (data) => {
@@ -976,15 +960,6 @@ async function handleNovaTransacao(e) {
         toggleSelectCartao();
         document.getElementById('transacao-tipo').value = 'despesa';
         atualizarSelectCategorias('despesa');
-        
-        const containerPoupanca = document.getElementById('container-usar-poupanca');
-        if (containerPoupanca) {
-            containerPoupanca.classList.remove('d-none');
-        }
-        if (chkPoupanca) {
-            chkPoupanca.checked = false;
-        }
-
         navegarPara('extrato');
     });
 }

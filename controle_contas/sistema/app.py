@@ -297,7 +297,6 @@ def nova_transacao():
     if dados.get('forma_pagamento') == 'Cartão Crédito':
         id_cartao = dados.get('id_cartao')
 
-    usar_poupanca = dados.get('usar_poupanca', False)
     valor_transacao = float(dados['valor'])
     valores_parcelas = dados.get('valores_parcelas', [])
 
@@ -317,42 +316,6 @@ def nova_transacao():
         data_gasto = datetime.strptime(dados['datas_parcelas'][0], '%Y-%m-%d').date() if dados.get('datas_parcelas') else datetime.now().date()
         hist = HistoricoPoupanca(id_usuario=current_user.id, descricao=dados['descricao'], categoria='Transferência', valor=valor_transacao, tipo='saida', data_registro=data_gasto)
         db.session.add(hist)
-
-    elif usar_poupanca and dados['tipo'] == 'despesa':
-        poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
-        
-        if poupanca and poupanca.saldo > 0:
-            desconto = min(poupanca.saldo, valor_transacao)
-            
-            poupanca.saldo -= desconto
-            valor_transacao -= desconto
-
-            data_gasto = datetime.strptime(dados['datas_parcelas'][0], '%Y-%m-%d').date() if dados.get('datas_parcelas') else datetime.now().date()
-            historico = HistoricoPoupanca(
-                id_usuario=current_user.id,
-                descricao=dados['descricao'],
-                categoria=tipo_check.nome,
-                valor=desconto,
-                tipo='saida',
-                data_registro=data_gasto
-            )
-            db.session.add(historico)
-            
-            if valor_transacao <= 0:
-                db.session.commit()
-                return jsonify({"mensagem": f"Despesa de R$ {desconto:.2f} coberta 100% pela Poupança!"})
-            
-            qtd = len(valores_parcelas)
-            if qtd > 0:
-                novo_valor_base = round(valor_transacao / qtd, 2)
-                for i in range(qtd):
-                    if i == qtd - 1:
-                        valores_parcelas[i] = round(valor_transacao - (novo_valor_base * (qtd - 1)), 2)
-                    else:
-                        valores_parcelas[i] = novo_valor_base
-            
-            dados['valor'] = valor_transacao
-            dados['valores_parcelas'] = valores_parcelas
 
     nova = Transacao(
         id_usuario=current_user.id,
