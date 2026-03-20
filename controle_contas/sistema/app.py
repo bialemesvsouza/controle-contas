@@ -47,6 +47,7 @@ class Transacao(db.Model):
     tipo_transacao = db.Column(db.String(20))
     forma_pagamento = db.Column(db.String(50))
     id_cartao = db.Column(db.Integer, db.ForeignKey('cartao_credito.id'), nullable=True)
+    is_fixa = db.Column(db.Boolean, default=False)
 
     parcelas = db.relationship('Parcela', backref='transacao', lazy=True, cascade="all, delete-orphan")
     tipo = db.relationship('Tipo', backref='transacoes')
@@ -88,13 +89,18 @@ def unauthorized_callback():
 
 
 # --- LÓGICA AUXILIAR ---
-def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
+def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None, lista_pagas=None):
     hoje = datetime.now().date()
     
     for i, data_str in enumerate(lista_datas):
         data_venc = datetime.strptime(data_str, '%Y-%m-%d').date()
 
-        if transacao_obj.tipo_transacao == 'receita':
+        is_paga_manual = lista_pagas[i] if (lista_pagas and len(lista_pagas) > i) else False
+
+        if is_paga_manual:
+            status_inicial = 'recebido' if transacao_obj.tipo_transacao == 'receita' else 'pago'
+            data_pag = hoje
+        elif transacao_obj.tipo_transacao == 'receita':
             status_inicial = 'recebido' if data_venc <= hoje else 'a_receber'
             data_pag = data_venc if status_inicial == 'recebido' else None
         else:
@@ -120,6 +126,34 @@ def gerar_parcelas_customizadas(transacao_obj, lista_datas, lista_valores=None):
 
 def atualizar_status_automaticos(user_id):
     hoje = datetime.now().date()
+    
+    transacoes_fixas = Transacao.query.filter_by(id_usuario=user_id, is_fixa=True).all()
+    for t in transacoes_fixas:
+        ultima_parcela = Parcela.query.filter_by(id_transacao=t.id).order_by(Parcela.numero_parcela.desc()).first()
+        
+        if ultima_parcela and ultima_parcela.vencimento <= hoje + relativedelta(months=1):
+            valor_parc = ultima_parcela.valor
+            for i in range(1, 13):
+                nova_data = ultima_parcela.vencimento + relativedelta(months=i)
+                
+                if t.tipo_transacao == 'receita':
+                    status_inicial = 'recebido' if nova_data <= hoje else 'a_receber'
+                    data_pag = nova_data if status_inicial == 'recebido' else None
+                else:
+                    status_inicial = 'a_pagar'
+                    data_pag = None
+                
+                nova_parcela = Parcela(
+                    id_transacao=t.id, id_usuario=user_id,
+                    numero_parcela=ultima_parcela.numero_parcela + i,
+                    valor=valor_parc, vencimento=nova_data,
+                    status=status_inicial, data_pagamento=data_pag
+                )
+                db.session.add(nova_parcela)
+            
+            t.qtd_parcelas += 12
+            t.valor_total += (valor_parc * 12)
+    db.session.commit()
     
     # Atualiza Despesas Atrasadas
     Parcela.query.filter(
@@ -325,12 +359,13 @@ def nova_transacao():
         qtd_parcelas=dados['parcelas'],
         tipo_transacao=dados['tipo'],
         forma_pagamento=dados.get('forma_pagamento'),
-        id_cartao=id_cartao
+        id_cartao=id_cartao,
+        is_fixa=dados.get('is_fixa', False)
     )
     db.session.add(nova)
     db.session.commit()
 
-    gerar_parcelas_customizadas(nova, dados['datas_parcelas'], dados.get('valores_parcelas'))
+    gerar_parcelas_customizadas(nova, dados['datas_parcelas'], dados.get('valores_parcelas'), dados.get('pagas_parcelas'))
     return jsonify({"mensagem": "Transação criada com sucesso!"})
 
 @app.route('/dashboard', methods=['GET'])

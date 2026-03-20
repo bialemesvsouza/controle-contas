@@ -773,7 +773,11 @@ function gerarCamposData() {
     let qtd = parseInt(inputQtd.value);
     if (isNaN(qtd) || qtd < 1) qtd = 1;
 
-    const valorTotal = limparFormatacao(document.getElementById('transacao-valor').value);
+    const isFixa = document.getElementById('transacao-fixa') && document.getElementById('transacao-fixa').checked;
+    let valorDigitado = limparFormatacao(document.getElementById('transacao-valor').value) || 0;
+    
+    const valorTotal = isFixa ? valorDigitado * qtd : valorDigitado;
+    
     const container = document.getElementById('container-datas');
     container.innerHTML = '';
 
@@ -813,6 +817,9 @@ function gerarCamposData() {
                     <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaLinha(${i}, 'A')" title="Avançar 1 Ano p/ Baixo"> A</button>
                     <button type="button" class="btn btn-light border text-primary fw-bold" onclick="aplicarRecorrenciaLinha(${i}, '=')" title="Copiar p/ Baixo"> = </button>
                 </div>
+            </td>
+            <td class="text-center" style="vertical-align: middle;">
+                <input class="form-check-input input-paga-parcela mt-1" type="checkbox" style="transform: scale(1.3); cursor: pointer;">
             </td>
         `;
         container.appendChild(tr);
@@ -914,13 +921,22 @@ function aplicarRecorrenciaLinha(indexBase, tipo) {
 async function handleNovaTransacao(e) {
     e.preventDefault();
 
+    const isFixa = document.getElementById('transacao-fixa') ? document.getElementById('transacao-fixa').checked : false;
+
     const inputsData = document.querySelectorAll('.input-data-parcela');
     const listaDatas = Array.from(inputsData).map(input => input.value);
 
     const inputsValor = document.querySelectorAll('.input-valor-parcela');
     const listaValores = Array.from(inputsValor).map(input => limparFormatacao(input.value) || 0);
 
-    const valorTotal = limparFormatacao(document.getElementById('transacao-valor').value);
+    const inputsPagas = document.querySelectorAll('.input-paga-parcela');
+    const listaPagas = Array.from(inputsPagas).map(input => input.checked);
+
+    let valorBaseDigitado = limparFormatacao(document.getElementById('transacao-valor').value) || 0;
+    let qtdParcelas = parseInt(document.getElementById('transacao-parcelas').value) || 1;
+
+    let valorTotal = isFixa ? (valorBaseDigitado * qtdParcelas) : valorBaseDigitado;
+    
     const somaValores = listaValores.reduce((a, b) => a + b, 0);
 
     if (Math.abs(valorTotal - somaValores) > 0.01) {
@@ -944,18 +960,26 @@ async function handleNovaTransacao(e) {
     const body = {
         descricao: document.getElementById('transacao-descricao').value,
         valor: valorTotal,
-        parcelas: parseInt(document.getElementById('transacao-parcelas').value),
+        parcelas: qtdParcelas,
         tipo: document.getElementById('transacao-tipo').value,
         id_tipo_categoria: parseInt(catId),
         datas_parcelas: listaDatas,
         valores_parcelas: listaValores,
         forma_pagamento: formaPagamento,
-        id_cartao: idCartao ? parseInt(idCartao) : null
+        id_cartao: idCartao ? parseInt(idCartao) : null,
+        is_fixa: isFixa,
+        pagas_parcelas: listaPagas
     };
 
     doPost('/nova_transacao', body, (data) => {
         showNotification(data.mensagem);
+        
         document.getElementById('nova-transacao-form').reset();
+        
+        if (typeof toggleTransacaoFixa === 'function') {
+            toggleTransacaoFixa();
+        }
+        
         gerarCamposData();
         toggleSelectCartao();
         document.getElementById('transacao-tipo').value = 'despesa';
@@ -1986,4 +2010,32 @@ function salvarEdicaoHistorico(e) {
         fecharModalEditarHistorico();
         loadPoupanca(); // Atualiza os saldos e a tabela
     });
+}
+
+
+function toggleTransacaoFixa() {
+    const isFixa = document.getElementById('transacao-fixa').checked;
+    const labelValor = document.getElementById('label-transacao-valor');
+    const divParcelas = document.getElementById('div-transacao-parcelas');
+    const inputParcelas = document.getElementById('transacao-parcelas');
+    
+    const divResumoValores = document.getElementById('resumo-valores-parcelas');
+
+    if (isFixa) {
+        labelValor.textContent = 'Valor da Mensalidade (R$)';
+        divParcelas.classList.add('d-none');
+
+        if (divResumoValores) divResumoValores.classList.add('d-none'); 
+        
+        inputParcelas.value = 12; 
+    } else {
+        labelValor.textContent = 'Valor Total (R$)';
+        divParcelas.classList.remove('d-none');
+
+        if (divResumoValores) divResumoValores.classList.remove('d-none');
+
+        inputParcelas.value = 1;
+    }
+    
+    gerarCamposData(); 
 }

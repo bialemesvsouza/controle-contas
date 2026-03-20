@@ -464,12 +464,18 @@
                                             <label class="form-label fw-medium text-muted small">Descrição</label>
                                             <input type="text" class="form-control bg-light border-0" id="transacao-descricao" required placeholder="Ex: Compra Mercado">
                                         </div>
+
+                                        <div class="form-check form-switch mb-3">
+                                            <input class="form-check-input" type="checkbox" id="transacao-fixa" onchange="toggleTransacaoFixa()">
+                                            <label class="form-check-label text-muted small fw-medium" for="transacao-fixa">Conta fixa</label>
+                                        </div>
+
                                         <div class="row g-3 mb-3">
                                             <div class="col-md-6">
-                                                <label class="form-label fw-medium text-muted small">Valor Total (R$)</label>
-                                                <input type="text" class="form-control bg-light border-0" id="transacao-valor" required placeholder="0,00" oninput="mascaraMilhar(event)">
+                                                <label class="form-label fw-medium text-muted small" id="label-transacao-valor">Valor Total (R$)</label>
+                                                <input type="text" class="form-control bg-light border-0" id="transacao-valor" required placeholder="0,00" oninput="mascaraMilhar(event); gerarCamposData()">
                                             </div>
-                                            <div class="col-md-6">
+                                            <div class="col-md-6" id="div-transacao-parcelas">
                                                 <label class="form-label fw-medium text-muted small">Nº Parcelas</label>
                                                 <input type="number" class="form-control bg-light border-0" id="transacao-parcelas" min="1" value="1" required oninput="gerarCamposData()">
                                             </div>
@@ -515,7 +521,7 @@
                                     <div class="card-header bg-transparent border-bottom pt-4 pb-3">
                                         <div class="d-flex flex-wrap justify-content-between align-items-center">
                                             <h5 class="fw-bold text-dark mb-0"><i class='bx bx-list-ol text-primary'></i> Detalhamento das Parcelas</h5>
-                                            <div class="text-end mt-2 mt-sm-0">
+                                            <div class="text-end mt-2 mt-sm-0" id="resumo-valores-parcelas">
                                                 <span class="text-muted small fw-medium">Soma: <span id="soma-parcelas" class="text-primary fw-bold">R$ 0,00</span></span>
                                                 <span class="text-muted small fw-medium ms-3">Diferença: <span id="diferenca-parcelas" class="text-success fw-bold">R$ 0,00</span></span>
                                             </div>
@@ -530,6 +536,7 @@
                                                         <th style="min-width: 120px;">Valor (R$)</th>
                                                         <th style="min-width: 130px;">Vencimento</th>
                                                         <th class="text-center" style="width: 140px;">Recorrência</th>
+                                                        <th class="text-center" style="width: 60px;" title="Marcar como Pago/Recebido">Pago?</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody id="container-datas">
