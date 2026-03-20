@@ -597,8 +597,18 @@ function mudarTipoExtrato(tipo) {
     filtroTipoExtrato = tipo;
     document.getElementById('btn-tab-despesa').classList.toggle('active', tipo === 'despesa');
     document.getElementById('btn-tab-receita').classList.toggle('active', tipo === 'receita');
-    document.getElementById('titulo-lista-mes').textContent = `${tipo === 'despesa' ? 'Despesas' : 'Receitas'} do Mês`;
     
+    const tituloMes = document.getElementById('titulo-lista-mes');
+    tituloMes.textContent = `${tipo === 'despesa' ? 'Despesas' : 'Receitas'} do Mês`;
+    
+    tituloMes.classList.remove('text-dark', 'text-danger', 'text-success');
+    
+    if (tipo === 'despesa') {
+        tituloMes.classList.add('text-danger'); // Vermelho
+    } else {
+        tituloMes.classList.add('text-success'); // Verde
+    }
+
     preencherFiltrosExtrato();
     renderizarTabela();
 }
