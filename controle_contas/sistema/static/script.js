@@ -1596,6 +1596,7 @@ async function abrirModalExclusaoLote(id_transacao, descricao) {
 
         document.getElementById('btn-excluir-todas-parcelas').onclick = () => excluirTodasParcelas(id_transacao);
         document.getElementById('modal-exclusao-lote').classList.remove('d-none');
+        document.getElementById('btn-cancelar-fixa').onclick = () => cancelarRenovacaoFixa(id_transacao);
     } catch(e) { showNotification("Erro ao carregar os dados da transação", "error"); }
 }
 
@@ -2048,4 +2049,24 @@ function toggleTransacaoFixa() {
     }
     
     gerarCamposData(); 
+}
+
+function cancelarRenovacaoFixa(id_transacao) {
+    abrirConfirmacao("Deseja cancelar a renovação automática? Os pagamentos anteriores serão mantidos no histórico.", async () => {
+        try {
+            const res = await fetch(`${API_BASE_URL}/cancelar_fixa/${id_transacao}`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                showNotification(data.mensagem, 'success');
+                fecharModalExclusaoLote();
+                loadParcelas();
+                loadDashboard();
+                carregarDadosExtrasDashboard();
+            } else { 
+                showNotification(data.erro, 'error'); 
+            }
+        } catch(e) { 
+            showNotification('Erro ao cancelar renovação', 'error'); 
+        }
+    });
 }

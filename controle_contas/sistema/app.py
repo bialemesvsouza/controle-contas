@@ -1060,6 +1060,30 @@ def editar_historico_poupanca(id_historico):
     db.session.commit()
     return jsonify({"mensagem": "Registro da poupança atualizado!"})
 
+@app.route('/cancelar_fixa/<int:id_transacao>', methods=['POST'])
+@login_required
+def cancelar_fixa(id_transacao):
+    transacao = Transacao.query.filter_by(id=id_transacao, id_usuario=current_user.id).first()
+    if not transacao:
+        return jsonify({"erro": "Transação não encontrada"}), 404
+    
+    transacao.is_fixa = False
+    
+    hoje = datetime.now().date()
+    Parcela.query.filter(
+        Parcela.id_transacao == id_transacao,
+        Parcela.status.in_(['a_pagar', 'a_receber']),
+        Parcela.vencimento > hoje
+    ).delete(synchronize_session=False)
+    
+    parcelas_restantes = Parcela.query.filter_by(id_transacao=id_transacao).all()
+    
+    transacao.qtd_parcelas = len(parcelas_restantes)
+    transacao.valor_total = sum(p.valor for p in parcelas_restantes)
+    
+    db.session.commit()
+    
+    return jsonify({"mensagem": "Renovação automática cancelada com sucesso! O histórico foi mantido."})
 
 if __name__ == '__main__':
     with app.app_context():
