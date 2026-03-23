@@ -32,9 +32,11 @@ class CartaoCredito(db.Model):
 
 class Tipo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False) # <--- CORRIGIDO
     nome = db.Column(db.String(50), nullable=False)
-    categoria = db.Column(db.String(20)) # 'receita' ou 'despesa'
+    categoria = db.Column(db.String(20)) 
+    cor = db.Column(db.String(7), default="#6c757d") 
+    icone = db.Column(db.String(50), default="fas fa-question")
 
 class Transacao(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -197,12 +199,15 @@ def register():
     db.session.commit()
 
     padroes = [
-        ('Salário', 'receita'), ('Alimentação', 'despesa'),
-        ('Transporte', 'despesa'), ('Moradia', 'despesa'), ('Lazer', 'despesa')
-    ]
+            ('Salário', 'receita', '#28a745', 'fas fa-money-bill-wave'), 
+            ('Alimentação', 'despesa', '#ffc107', 'fas fa-utensils'),
+            ('Transporte', 'despesa', '#dc3545', 'fas fa-car'), 
+            ('Moradia', 'despesa', '#0dcaf0', 'fas fa-home'), 
+            ('Lazer', 'despesa', '#6f42c1', 'fas fa-cocktail')
+        ]
 
-    for nome, cat in padroes:
-        novo_tipo = Tipo(nome=nome, categoria=cat, id_usuario=novo_user.id)
+    for nome, cat, cor, icone in padroes:
+        novo_tipo = Tipo(nome=nome, categoria=cat, cor=cor, icone=icone, id_usuario=novo_user.id)
         db.session.add(novo_tipo)
 
     db.session.commit()
@@ -232,7 +237,7 @@ def logout():
 @login_required
 def listar_tipos():
     tipos = Tipo.query.filter_by(id_usuario=current_user.id).all()
-    lista = [{"id": t.id, "nome": t.nome, "categoria": t.categoria} for t in tipos]
+    lista = [{"id": t.id, "nome": t.nome, "categoria": t.categoria, "cor": t.cor, "icone": t.icone} for t in tipos]
     return jsonify(lista)
 
 @app.route('/api/tipos', methods=['POST'])
@@ -241,6 +246,8 @@ def criar_tipo():
     dados = request.json
     nome = dados.get('nome')
     categoria = dados.get('categoria')
+    cor = dados.get('cor', '#6c757d')
+    icone = dados.get('icone', 'fas fa-question')
 
     if not nome or not categoria:
         return jsonify({"erro": "Nome e Categoria são obrigatórios"}), 400
@@ -254,7 +261,7 @@ def criar_tipo():
     if tipo_existente:
         return jsonify({"erro": f"A categoria '{nome}' já existe em {categoria}."}), 400
 
-    novo_tipo = Tipo(nome=nome, categoria=categoria, id_usuario=current_user.id)
+    novo_tipo = Tipo(nome=nome, categoria=categoria, cor=cor, icone=icone, id_usuario=current_user.id)
     db.session.add(novo_tipo)
     db.session.commit()
     return jsonify({"mensagem": "Categoria criada com sucesso!", "id": novo_tipo.id})
@@ -278,6 +285,37 @@ def excluir_tipo(id_tipo):
     db.session.delete(tipo)
     db.session.commit()
     return jsonify({"mensagem": "Categoria excluída."})
+
+@app.route('/api/tipos/<int:id_tipo>', methods=['PUT'])
+@login_required
+def editar_tipo(id_tipo):
+    tipo = Tipo.query.filter_by(id=id_tipo, id_usuario=current_user.id).first()
+    if not tipo:
+        return jsonify({"erro": "Categoria não encontrada"}), 404
+    if tipo.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
+        return jsonify({"erro": "Esta categoria é do sistema e não pode ser editada."}), 400
+
+    dados = request.json
+    nome = dados.get('nome')
+    categoria = dados.get('categoria')
+    cor = dados.get('cor')
+    icone = dados.get('icone')
+
+    if not nome or not categoria:
+        return jsonify({"erro": "Nome e Categoria são obrigatórios"}), 400
+
+    tipo_existente = Tipo.query.filter(Tipo.nome == nome, Tipo.categoria == categoria, Tipo.id_usuario == current_user.id, Tipo.id != id_tipo).first()
+    if tipo_existente:
+         return jsonify({"erro": f"A categoria '{nome}' já existe em {categoria}."}), 400
+
+    tipo.nome = nome
+    tipo.categoria = categoria
+    if cor: tipo.cor = cor
+    if icone: tipo.icone = icone
+
+    db.session.commit()
+    return jsonify({"mensagem": "Categoria atualizada com sucesso!"})
+
 # --- ROTAS DE CARTÕES ---
 
 @app.route('/api/cartoes', methods=['GET'])
@@ -397,24 +435,24 @@ def dashboard():
         .filter(Transacao.tipo_transacao == 'despesa')\
         .filter(Parcela.vencimento >= inicio, Parcela.vencimento <= fim).scalar() or 0.0
 
-    despesas_por_cat = db.session.query(Tipo.nome, db.func.sum(Parcela.valor))\
+    despesas_por_cat = db.session.query(Tipo.nome, Tipo.cor, db.func.sum(Parcela.valor))\
         .join(Transacao, Transacao.id_tipo == Tipo.id)\
         .join(Parcela, Parcela.id_transacao == Transacao.id)\
         .filter(Parcela.id_usuario == current_user.id)\
         .filter(Transacao.tipo_transacao == 'despesa')\
         .filter(Parcela.vencimento >= inicio, Parcela.vencimento <= fim)\
-        .group_by(Tipo.nome).all()
+        .group_by(Tipo.nome, Tipo.cor).all()
 
-    receitas_por_cat = db.session.query(Tipo.nome, db.func.sum(Parcela.valor))\
+    receitas_por_cat = db.session.query(Tipo.nome, Tipo.cor, db.func.sum(Parcela.valor))\
         .join(Transacao, Transacao.id_tipo == Tipo.id)\
         .join(Parcela, Parcela.id_transacao == Transacao.id)\
         .filter(Parcela.id_usuario == current_user.id)\
         .filter(Transacao.tipo_transacao == 'receita')\
         .filter(Parcela.vencimento >= inicio, Parcela.vencimento <= fim)\
-        .group_by(Tipo.nome).all()
+        .group_by(Tipo.nome, Tipo.cor).all()
 
-    grafico_despesas = [{"categoria": nome, "total": valor} for nome, valor in despesas_por_cat]
-    grafico_receitas = [{"categoria": nome, "total": valor} for nome, valor in receitas_por_cat]
+    grafico_despesas = [{"categoria": nome, "cor": cor, "total": valor} for nome, cor, valor in despesas_por_cat]
+    grafico_receitas = [{"categoria": nome, "cor": cor, "total": valor} for nome, cor, valor in receitas_por_cat]
 
     return jsonify({
         "usuario": current_user.username,
@@ -450,6 +488,8 @@ def listar_parcelas():
             "status": p.status,
             "tipo": p.transacao.tipo_transacao,
             "categoria": p.transacao.tipo.nome if p.transacao.tipo else 'Geral',
+            "cor_categoria": p.transacao.tipo.cor if p.transacao.tipo else '#6c757d',
+            "icone_categoria": p.transacao.tipo.icone if p.transacao.tipo else 'fas fa-question',
             "id_categoria": p.transacao.id_tipo,
             "id_transacao": p.transacao.id,
             "forma_pagamento": p.transacao.forma_pagamento,

@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEventListeners();
     gerarCamposData();
     renderizarRover();
+    preencherGradeIcones();
 
     document.getElementById('transacao-tipo').addEventListener('change', function() {
         atualizarSelectCategorias(this.value);
@@ -328,12 +329,8 @@ function renderizarGrafico(canvasId, tipo, dados) {
     const ctx = document.getElementById(canvasId).getContext('2d');
     const labels = dados.map(item => item.categoria);
     const valores = dados.map(item => item.total);
-
-    const coresBase = [
-        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6',
-        '#34495e', '#16a085', '#d35400', '#7f8c8d', '#c0392b',
-        '#1abc9c', '#27ae60', '#2980b9', '#8e44ad', '#2c3e50'
-    ];
+    
+    const cores = dados.map(item => item.cor || '#6c757d'); 
 
     if (tipo === 'despesa') {
         if (chartDespesas) chartDespesas.destroy();
@@ -345,7 +342,7 @@ function renderizarGrafico(canvasId, tipo, dados) {
         type: 'pie',
         data: {
             labels: labels,
-            datasets: [{ data: valores, backgroundColor: coresBase, borderWidth: 1 }]
+            datasets: [{ data: valores, backgroundColor: cores, borderWidth: 1 }] // Usa a variável cores
         },
         options: {
             responsive: true,
@@ -513,10 +510,23 @@ function renderizarListaCategoriasGerenciamento() {
 
     todasCategorias.forEach(cat => {
         const item = document.createElement('div');
-        item.className = 'p-2 px-3 bg-light rounded-3 d-flex justify-content-between align-items-center';
+        item.className = 'p-2 px-3 bg-white border shadow-sm rounded-3 d-flex justify-content-between align-items-center mb-2';
+        
+        const isEspecial = ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA'].includes(cat.nome);
+        let botoesAcao = '';
+        
+        if(!isEspecial) {
+            botoesAcao = `
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary border-0 rounded-circle p-1" style="line-height: 1;" onclick="prepararEdicaoCategoria(${cat.id}, '${cat.nome}', '${cat.categoria}', '${cat.cor}', '${cat.icone}')" title="Editar"><i class='bx bx-edit fs-5'></i></button>
+                    <button type="button" class="btn btn-sm btn-outline-danger border-0 rounded-circle p-1" style="line-height: 1;" onclick="excluirCategoria(${cat.id})" title="Excluir"><i class='bx bx-x fs-5'></i></button>
+                </div>
+            `;
+        }
+
         item.innerHTML = `
-            <span class="fw-medium text-dark">${cat.nome}</span>
-            <button class="btn btn-sm btn-outline-danger border-0 rounded-circle p-1" style="line-height: 1;" onclick="excluirCategoria(${cat.id})"><i class='bx bx-x fs-5'></i></button>
+            ${renderCategoryBadge(cat.nome, cat.cor, cat.icone)}
+            ${botoesAcao}
         `;
         if(cat.categoria === 'despesa') containerDespesa.appendChild(item);
         else containerReceita.appendChild(item);
@@ -525,13 +535,71 @@ function renderizarListaCategoriasGerenciamento() {
 
 async function handleNovaCategoria(e) {
     e.preventDefault();
+    const idEdit = document.getElementById('cat-id-edit').value;
     const nome = document.getElementById('cat-nome').value;
     const tipo = document.getElementById('cat-tipo').value;
-    doPost('/api/tipos', { nome: nome, categoria: tipo }, (data) => {
-        showNotification(data.mensagem);
-        document.getElementById('cat-nome').value = '';
-        loadCategorias(true);
-    });
+    const cor = document.getElementById('cat-cor').value;
+    const icone = document.getElementById('cat-icone').value;
+
+    const payload = { nome, categoria: tipo, cor, icone };
+
+    if (idEdit) {
+        // MODO EDIÇÃO (PUT)
+        try {
+            const res = await fetch(`${API_BASE_URL}/api/tipos/${idEdit}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if(res.ok) {
+                showNotification(data.mensagem, 'success');
+                cancelarEdicaoCategoria();
+                loadCategorias(true);
+                loadDashboard(); // Atualiza os gráficos se as cores mudaram
+            } else {
+                showNotification(data.erro, 'error');
+            }
+        } catch(e) { showNotification('Erro ao editar', 'error'); }
+    } else {
+        // MODO CRIAÇÃO (POST)
+        doPost('/api/tipos', payload, (data) => {
+            showNotification(data.mensagem);
+            cancelarEdicaoCategoria();
+            loadCategorias(true);
+        });
+    }
+}
+
+function prepararEdicaoCategoria(id, nome, tipo, cor, icone) {
+    document.getElementById('cat-id-edit').value = id;
+    document.getElementById('cat-nome').value = nome;
+    document.getElementById('cat-tipo').value = tipo;
+    document.getElementById('cat-cor').value = cor;
+    document.getElementById('cat-icone').value = icone;
+    document.getElementById('icone-selecionado-preview').className = `${icone} text-dark`;
+
+    // Transforma o botão visualmente
+    const btnSalvar = document.getElementById('btn-salvar-categoria');
+    btnSalvar.textContent = 'Atualizar';
+    btnSalvar.classList.replace('btn-primary', 'btn-success');
+    document.getElementById('btn-cancelar-edicao-cat').classList.remove('d-none');
+}
+
+function cancelarEdicaoCategoria() {
+    document.getElementById('nova-categoria-form').reset();
+    document.getElementById('cat-id-edit').value = '';
+    
+    // Reseta cor e ícone para padrões visuais
+    document.getElementById('cat-cor').value = '#ffc107';
+    document.getElementById('cat-icone').value = 'fas fa-utensils';
+    document.getElementById('icone-selecionado-preview').className = 'fas fa-utensils text-dark';
+
+    // Restaura o botão
+    const btnSalvar = document.getElementById('btn-salvar-categoria');
+    btnSalvar.textContent = 'Adicionar';
+    btnSalvar.classList.replace('btn-success', 'btn-primary');
+    document.getElementById('btn-cancelar-edicao-cat').classList.add('d-none');
 }
 
 function excluirCategoria(id) {
@@ -750,7 +818,7 @@ function renderizarTabela() {
             <td class="text-center">${checkboxHtml}</td>
             <td class="fw-medium text-dark">${p.descricao}</td>
             <td class="text-muted">${p.numero}</td>
-            <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
+            <td>${renderCategoryBadge(p.categoria, p.cor_categoria, p.icone_categoria)}</td>
             <td class="text-muted small">${formaPgtoHTML}</td>
             <td class="fw-bold">${formatarMoeda(p.valor)}</td>
             <td>${dataDisplay}</td>
@@ -2077,3 +2145,158 @@ function cancelarRenovacaoFixa(id_transacao) {
         }
     });
 }
+
+// ====== NOVAS FUNÇÕES PARA CORES E ÍCONES - REVISADO (Fiel à Imagem) ======
+
+function renderCategoryBadge(catNome, catCor, catIcone) {
+    if (!catNome) return '<span class="text-muted small">Geral</span>';
+    const cor = catCor || '#6c757d'; 
+    const icone = catIcone || 'fas fa-question';
+    return `
+        <div class="d-inline-flex align-items-center gap-2 px-2 py-1 rounded-pill" style="background-color: ${cor}15; border: 1px solid ${cor}30; color: ${cor};">
+            <i class="${icone}" style="color: ${cor};"></i>
+            <span class="fw-bold text-nowrap" style="font-size: 0.75rem;">${catNome}</span>
+        </div>
+    `;
+}
+
+const iconesComuns = [
+    // 🍔 Alimentação & Bebidas
+    'fas fa-utensils', 'fas fa-burger', 'fas fa-pizza-slice', 'fas fa-hotdog', 'fas fa-bowl-food', 
+    'fas fa-bowl-rice', 'fas fa-apple-whole', 'fas fa-carrot', 'fas fa-cheese', 'fas fa-bread-slice',
+    'fas fa-ice-cream', 'fas fa-cookie', 'fas fa-mug-hot', 'fas fa-wine-glass', 'fas fa-martini-glass-citrus',
+    'fas fa-beer-mug-empty', 'fas fa-bottle-water', 'fas fa-fish', 'fas fa-drumstick-bite',
+
+    // 🏠 Moradia & Contas
+    'fas fa-house', 'fas fa-building', 'fas fa-bolt', 'fas fa-faucet', 'fas fa-faucet-drip', 
+    'fas fa-wifi', 'fas fa-tv', 'fas fa-couch', 'fas fa-bed', 'fas fa-bath', 'fas fa-toilet-paper',
+    'fas fa-plug', 'fas fa-broom', 'fas fa-trash', 'fas fa-fire', 'fas fa-lightbulb', 'fas fa-fan', 
+    'fas fa-hammer', 'fas fa-toolbox', 'fas fa-key', 'fas fa-box', 'fas fa-paint-roller',
+
+    // 🚗 Transporte & Viagens
+    'fas fa-car', 'fas fa-bus', 'fas fa-plane', 'fas fa-plane-departure', 'fas fa-bicycle', 
+    'fas fa-motorcycle', 'fas fa-train', 'fas fa-train-subway', 'fas fa-train-tram', 'fas fa-gas-pump', 
+    'fas fa-taxi', 'fas fa-ship', 'fas fa-truck', 'fas fa-route', 'fas fa-map-location-dot', 'fas fa-ticket',
+
+    // 🛍️ Compras & Vestuário
+    'fas fa-cart-shopping', 'fas fa-basket-shopping', 'fas fa-bag-shopping', 'fas fa-shirt', 'fas fa-socks', 
+    'fas fa-shoe-prints', 'fas fa-tag', 'fas fa-tags', 'fas fa-receipt', 'fas fa-store', 'fas fa-shop',
+    'fas fa-glasses', 'fas fa-hat-cowboy', 'fas fa-gem', 'fas fa-gifts', 'fas fa-barcode',
+
+    // 🩺 Saúde & Pessoal
+    'fas fa-heart-pulse', 'fas fa-pills', 'fas fa-tooth', 'fas fa-dumbbell', 'fas fa-spa', 
+    'fas fa-scissors', 'fas fa-user-doctor', 'fas fa-bandage', 'fas fa-syringe', 'fas fa-hospital', 
+    'fas fa-stethoscope', 'fas fa-virus', 'fas fa-crutch', 'fas fa-wheelchair', 'fas fa-pump-medical',
+
+    // 📚 Educação & Trabalho
+    'fas fa-graduation-cap', 'fas fa-book', 'fas fa-book-open', 'fas fa-briefcase', 'fas fa-laptop', 
+    'fas fa-pen', 'fas fa-pencil', 'fas fa-calculator', 'fas fa-chalkboard-user', 'fas fa-folder', 
+    'fas fa-folder-open', 'fas fa-school', 'fas fa-microscope', 'fas fa-ruler', 'fas fa-paperclip',
+
+    // 🎮 Lazer, Cultura & Esportes
+    'fas fa-film', 'fas fa-gamepad', 'fas fa-music', 'fas fa-headphones', 'fas fa-microphone',
+    'fas fa-palette', 'fas fa-futbol', 'fas fa-basketball', 'fas fa-volleyball', 'fas fa-table-tennis-paddle-ball',
+    'fas fa-dice', 'fas fa-chess-knight', 'fas fa-puzzle-piece', 'fas fa-camera', 'fas fa-masks-theater', 'fas fa-campground',
+
+    // 📱 Tecnologia & Eletrônicos
+    'fas fa-mobile-screen-button', 'fas fa-desktop', 'fas fa-keyboard', 'fas fa-mouse', 'fas fa-print',
+    'fas fa-battery-full', 'fas fa-battery-quarter', 'fas fa-microchip', 'fas fa-server', 'fas fa-sd-card',
+
+    // 👨‍👩‍👧 Família & Pets
+    'fas fa-baby-carriage', 'fas fa-baby', 'fas fa-child', 'fas fa-users', 'fas fa-user-group', 
+    'fas fa-paw', 'fas fa-dog', 'fas fa-cat', 'fas fa-bone', 'fas fa-ring', 'fas fa-heart',
+
+    // 💰 Financeiro & Negócios
+    'fas fa-money-bill-wave', 'fas fa-money-bill-1', 'fas fa-piggy-bank', 'fas fa-credit-card', 
+    'fas fa-chart-line', 'fas fa-chart-pie', 'fas fa-chart-bar', 'fas fa-coins', 'fas fa-wallet', 
+    'fas fa-dollar-sign', 'fas fa-brazilian-real-sign', 'fas fa-file-invoice-dollar', 'fas fa-money-check-dollar',
+    'fas fa-building-columns', 'fas fa-vault', 'fas fa-sack-dollar', 'fas fa-hand-holding-dollar', 'fas fa-scale-balanced',
+
+    // 📌 Outros / Genéricos
+    'fas fa-gift', 'fas fa-ellipsis', 'fas fa-question', 'fas fa-exclamation', 'fas fa-info',
+    'fas fa-check', 'fas fa-xmark', 'fas fa-star', 'fas fa-thumbs-up', 'fas fa-bell', 'fas fa-circle-exclamation'
+];
+
+function preencherGradeIcones() {
+    const gridDiv = document.getElementById('grade-icones-selecao');
+    if (!gridDiv) return;
+    
+    gridDiv.innerHTML = '';
+    
+    // Configurações de layout para suportar muitos ícones sem quebrar a tela
+    gridDiv.style.display = 'flex';
+    gridDiv.style.flexWrap = 'wrap';
+    gridDiv.style.gap = '5px';
+    gridDiv.style.maxHeight = '250px'; // Altura máxima antes de criar scroll
+    gridDiv.style.overflowY = 'auto';  // Cria barra de rolagem
+    gridDiv.style.padding = '5px';
+    gridDiv.style.justifyContent = 'center';
+
+    iconesComuns.forEach(iconeClass => {
+        const iconBtn = document.createElement('button');
+        iconBtn.type = 'button';
+        iconBtn.className = 'btn btn-white text-secondary fs-5 p-1 m-0 border-0';
+        
+        // Aumentei ligeiramente o botão para melhorar o clique no celular
+        iconBtn.style.width = '35px'; 
+        iconBtn.style.height = '35px';
+        iconBtn.style.borderRadius = '8px';
+        iconBtn.style.transition = 'all 0.2s';
+        
+        iconBtn.innerHTML = `<i class="${iconeClass}"></i>`;
+        
+        iconBtn.onmouseover = () => { iconBtn.style.backgroundColor = '#e8f0fe'; iconBtn.style.color = '#1a73e8'; };
+        iconBtn.onmouseout = () => { iconBtn.style.backgroundColor = 'transparent'; iconBtn.style.color = '#6c757d'; };
+
+        iconBtn.onclick = () => {
+            document.getElementById('cat-icone').value = iconeClass;
+            document.getElementById('icone-selecionado-preview').className = `${iconeClass} fs-5 text-dark`;
+            // Se você tiver uma função para fechar o modal/popover, chame-a aqui
+            if (typeof fecharPopoverIcones === 'function') {
+                fecharPopoverIcones();
+            }
+        };
+        gridDiv.appendChild(iconBtn);
+    });
+}
+
+// ====== Funções de Ação do Popover ======
+
+function alternarPopoverIcones() {
+    const popover = document.getElementById('popover-selecionar-icone');
+    if (popover.classList.contains('d-none')) {
+        abrirPopoverIcones();
+    } else {
+        fecharPopoverIcones();
+    }
+}
+
+function abrirPopoverIcones() {
+    const popover = document.getElementById('popover-selecionar-icone');
+
+    preencherGradeIcones();
+    popover.classList.remove('d-none');
+    document.addEventListener('click', fecharSeClicarFora);
+}
+
+function fecharPopoverIcones() {
+    const popover = document.getElementById('popover-selecionar-icone');
+    if(!popover) return;
+    popover.classList.add('d-none');
+    
+    document.removeEventListener('click', fecharSeClicarFora);
+}
+
+function fecharSeClicarFora(event) {
+    const popover = document.getElementById('popover-selecionar-icone');
+    const btnPrincipal = document.getElementById('btn-seletor-icone-principal');
+    
+    if (popover && btnPrincipal && !popover.contains(event.target) && !btnPrincipal.contains(event.target)) {
+        fecharPopoverIcones();
+    }
+}
+
+
+
+
+    

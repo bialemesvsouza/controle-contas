@@ -12,6 +12,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
         .status-badge { padding: 5px 12px; border-radius: 50px; font-size: 0.75rem; font-weight: 600; display: inline-block; text-transform: uppercase; }
@@ -745,21 +746,52 @@
                                 </div>
                                 <div class="card-body p-4">
                                     <form id="nova-categoria-form" class="row g-2 mb-4 align-items-end border-bottom pb-4">
-                                        <div class="col-md-6">
-                                            <label class="form-label text-muted small">Nova Categoria</label>
-                                            <input type="text" class="form-control bg-light border-0" id="cat-nome" placeholder="Ex: Combustível..." required>
-                                        </div>
                                         <div class="col-md-4">
+                                            <label class="form-label text-muted small">Nova Categoria</label>
+                                            <input type="text" class="form-control bg-light border-0" id="cat-nome" placeholder="Ex: Combustível..." required style="height: 38px;">
+                                        </div>
+                                        
+                                        <div class="col-md-3">
                                             <label class="form-label text-muted small">Tipo</label>
-                                            <select class="form-select bg-light border-0" id="cat-tipo">
+                                            <select class="form-select bg-light border-0" id="cat-tipo" style="height: 38px;">
                                                 <option value="despesa">Despesa</option>
                                                 <option value="receita">Receita</option>
                                             </select>
                                         </div>
-                                        <div class="col-md-2">
-                                            <button type="submit" class="btn btn-primary w-100">Adicionar</button>
+                                        
+                                        <div class="col-md-1">
+                                            <label class="form-label text-muted small">Cor</label>
+                                            <input type="color" class="form-control form-control-color border-0 p-0 w-100" id="cat-cor" value="#ffc107" title="Escolha a cor" style="height: 38px; border-radius: 6px;">
+                                        </div>
+                                        
+                                        <div class="col-md-2 position-relative">
+                                            <label class="form-label text-muted small">Ícone</label>
+                                            <button id="btn-seletor-icone-principal" class="btn btn-light border w-100 d-flex align-items-center justify-content-between px-2" type="button" onclick="alternarPopoverIcones()" style="height: 38px;">
+                                                <span id="icone-selecionado-preview" class="text-dark d-flex align-items-center justify-content-center" style="width: 20px; height: 20px;"></span>
+                                                <i class='bx bx-chevron-down text-muted'></i>
+                                            </button>
+                                            <input type="hidden" id="cat-icone" value="svg-0">
+
+                                            <div id="popover-selecionar-icone" class="d-none rounded-4 shadow-lg bg-white border" style="position: absolute; top: 100%; left: -50px; width: 300px; z-index: 2000; margin-top: 8px;">
+                                                <div class="px-3 pt-3 pb-2 d-flex justify-content-between align-items-center">
+                                                    <h6 class="fw-bold mb-0 text-dark" style="font-size: 0.9rem;">Escolha um Ícone</h6>
+                                                    <button type="button" class="btn-close" style="font-size: 0.7rem;" onclick="fecharPopoverIcones()"></button>
+                                                </div>
+                                                <div class="px-3 pb-3">
+                                                    <div class="d-flex flex-wrap gap-1 justify-content-center" id="grade-icones-selecao" style="max-height: 220px; overflow-y: auto; scrollbar-width: thin;">
+                                                        </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-2 position-relative">
+                                            <input type="hidden" id="cat-id-edit" value="">
+                                            <button type="submit" id="btn-salvar-categoria" class="btn btn-primary w-100 fw-medium" style="height: 38px; transition: 0.3s;">Adicionar</button>
+                                            
+                                            <a href="#" id="btn-cancelar-edicao-cat" class="text-danger small fw-bold text-decoration-none d-none text-center w-100" onclick="cancelarEdicaoCategoria()" style="position: absolute; top: 100%; left: 0; padding-top: 4px;">Cancelar</a>
                                         </div>
                                     </form>
+
                                     <div class="row g-4">
                                         <div class="col-md-6">
                                             <h6 class="text-danger fw-bold border-bottom pb-2 mb-3">Despesas</h6>
@@ -773,6 +805,7 @@
                                 </div>
                             </div>
                         </div>
+
                         <div class="col-lg-5">
                             <div class="card border-0 shadow-sm rounded-4">
                                 <div class="card-header bg-transparent border-bottom pt-4 pb-3">
@@ -1022,8 +1055,20 @@
             </div>
         </div>
     </div>
+    <div id="modal-selecionar-icone" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:3500; display:flex; align-items:center; justify-content:center;">
+        <div class="card border-0 shadow-lg rounded-4 w-100 mx-3" style="max-width: 450px; max-height: 85vh; display: flex; flex-direction: column;">
+            <div class="card-header bg-white border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="fw-bold mb-0 text-dark">Escolha um Ícone</h5>
+                <button type="button" class="btn-close" onclick="fecharModalIcones()"></button>
+            </div>
+            <div class="card-body p-4 bg-light" style="overflow-y: auto;">
+                <div class="d-flex flex-wrap gap-2 justify-content-center" id="grade-icones-selecao">
+                    </div>
+            </div>
+        </div>
+    </div>
 
-
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/static/script.js"></script>
 </body>
 </html>
