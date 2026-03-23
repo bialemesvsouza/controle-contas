@@ -516,6 +516,7 @@ def editar_parcela(id_parcela):
         if hist:
             hist.valor = novo_valor
             hist.descricao = dados['descricao']
+            hist.data_registro = datetime.strptime(dados['vencimento'], '%Y-%m-%d').date()
             
         parcela.transacao.valor_total = novo_valor
 
@@ -783,9 +784,17 @@ def definir_meta_poupanca():
 @app.route('/api/poupanca/depositar', methods=['POST'])
 @login_required
 def depositar_poupanca():
-    valor = float(request.json.get('valor', 0))
+    dados = request.json
+    valor = float(dados.get('valor', 0))
+    data_str = dados.get('data')
+    
     if valor <= 0:
         return jsonify({"erro": "Valor inválido"}), 400
+        
+    try:
+        data_mov = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else datetime.now().date()
+    except ValueError:
+        data_mov = datetime.now().date()
         
     poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
     poupanca.saldo += valor
@@ -804,15 +813,14 @@ def depositar_poupanca():
     db.session.add(nova_transacao)
     db.session.commit()
     
-    hoje = datetime.now().date()
     nova_parcela = Parcela(
         id_transacao=nova_transacao.id, id_usuario=current_user.id,
-        numero_parcela=1, valor=valor, vencimento=hoje,
-        status='pago', data_pagamento=hoje
+        numero_parcela=1, valor=valor, vencimento=data_mov,
+        status='pago', data_pagamento=data_mov
     )
     db.session.add(nova_parcela)
 
-    hist = HistoricoPoupanca(id_usuario=current_user.id, descricao='Depósito na Poupança', categoria='Poupança', valor=valor, tipo='entrada')
+    hist = HistoricoPoupanca(id_usuario=current_user.id, descricao='Depósito na Poupança', categoria='Poupança', valor=valor, tipo='entrada', data_registro=data_mov)
     db.session.add(hist)
 
     db.session.commit()
@@ -821,11 +829,19 @@ def depositar_poupanca():
 @app.route('/api/poupanca/resgatar', methods=['POST'])
 @login_required
 def resgatar_poupanca():
-    valor = float(request.json.get('valor', 0))
+    dados = request.json
+    valor = float(dados.get('valor', 0))
+    data_str = dados.get('data')
+    
     poupanca = Poupanca.query.filter_by(id_usuario=current_user.id).first()
     
     if valor <= 0 or not poupanca or valor > poupanca.saldo:
         return jsonify({"erro": "Valor inválido ou saldo da poupança insuficiente"}), 400
+        
+    try:
+        data_mov = datetime.strptime(data_str, '%Y-%m-%d').date() if data_str else datetime.now().date()
+    except ValueError:
+        data_mov = datetime.now().date()
         
     poupanca.saldo -= valor
     
@@ -843,15 +859,14 @@ def resgatar_poupanca():
     db.session.add(nova_transacao)
     db.session.commit()
     
-    hoje = datetime.now().date()
     nova_parcela = Parcela(
         id_transacao=nova_transacao.id, id_usuario=current_user.id,
-        numero_parcela=1, valor=valor, vencimento=hoje,
-        status='recebido', data_pagamento=hoje
+        numero_parcela=1, valor=valor, vencimento=data_mov,
+        status='recebido', data_pagamento=data_mov
     )
     db.session.add(nova_parcela)
 
-    hist = HistoricoPoupanca(id_usuario=current_user.id, descricao='Resgate da Poupança', categoria='Poupança', valor=valor, tipo='saida')
+    hist = HistoricoPoupanca(id_usuario=current_user.id, descricao='Resgate da Poupança', categoria='Poupança', valor=valor, tipo='saida', data_registro=data_mov)
     db.session.add(hist)
 
     db.session.commit()
@@ -1043,19 +1058,23 @@ def editar_historico_poupanca(id_historico):
         if poupanca.saldo < 0:
             poupanca.saldo = 0
 
+    try:
+        nova_data = datetime.strptime(dados.get('data'), '%Y-%m-%d').date()
+        hist.data_registro = nova_data
+    except ValueError:
+        nova_data = hist.data_registro
+
     if transacao_vinculada:
         transacao_vinculada.descricao = nova_descricao
         transacao_vinculada.valor_total = novo_valor 
         parcela = Parcela.query.filter_by(id_transacao=transacao_vinculada.id).first()
         if parcela:
             parcela.valor = novo_valor
+            parcela.vencimento = nova_data
+            parcela.data_pagamento = nova_data
 
     hist.descricao = nova_descricao
     hist.valor = novo_valor
-    try:
-        hist.data_registro = datetime.strptime(dados.get('data'), '%Y-%m-%d').date()
-    except ValueError:
-        pass
 
     db.session.commit()
     return jsonify({"mensagem": "Registro da poupança atualizado!"})

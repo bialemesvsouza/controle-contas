@@ -1818,6 +1818,11 @@ async function loadPoupanca() {
             const data = await res.json();
             document.getElementById('poupanca-saldo-atual').textContent = formatarMoeda(data.saldo);
             
+            const dataInput = document.getElementById('poupanca-data-input');
+            if(dataInput && !dataInput.value) {
+                dataInput.value = new Date().toISOString().split('T')[0];
+            }
+
             let textoMeta = 'Sem meta definida';
             let percentual = 0;
             if (data.meta > 0) {
@@ -1849,14 +1854,15 @@ function depositarPoupanca(e) {
     if (e) e.preventDefault();
     const valorStr = document.getElementById('poupanca-deposito-input').value;
     const valor = limparFormatacao(valorStr);
+    const dataMov = document.getElementById('poupanca-data-input').value || new Date().toISOString().split('T')[0];
     
     if (valor <= 0) {
         showNotification("Digite um valor válido para depositar.", "error");
         return;
     }
     
-    abrirConfirmacao(`Deseja retirar ${formatarMoeda(valor)} das receitas deste mês para guardar na Poupança?`, () => {
-        doPost('/api/poupanca/depositar', { valor: valor }, (data) => {
+    abrirConfirmacao(`Deseja retirar ${formatarMoeda(valor)} das receitas para guardar na Poupança?`, () => {
+        doPost('/api/poupanca/depositar', { valor: valor, data: dataMov }, (data) => {
             showNotification(data.mensagem);
             document.getElementById('poupanca-deposito-input').value = '';
             loadPoupanca();
@@ -1867,14 +1873,15 @@ function depositarPoupanca(e) {
 function resgatarPoupanca() {
     const valorStr = document.getElementById('poupanca-deposito-input').value;
     const valor = limparFormatacao(valorStr);
+    const dataMov = document.getElementById('poupanca-data-input').value || new Date().toISOString().split('T')[0];
     
     if (valor <= 0) {
         showNotification("Digite um valor válido para resgatar.", "error");
         return;
     }
     
-    abrirConfirmacao(`Deseja resgatar ${formatarMoeda(valor)} da poupança para o saldo do mês atual?`, () => {
-        doPost('/api/poupanca/resgatar', { valor: valor }, (data) => {
+    abrirConfirmacao(`Deseja resgatar ${formatarMoeda(valor)} da poupança para o saldo do mês?`, () => {
+        doPost('/api/poupanca/resgatar', { valor: valor, data: dataMov }, (data) => {
             showNotification(data.mensagem);
             document.getElementById('poupanca-deposito-input').value = '';
             loadPoupanca();
