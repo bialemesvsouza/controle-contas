@@ -55,6 +55,7 @@ document.addEventListener('DOMContentLoaded', function() {
     gerarCamposData();
     renderizarRover();
     preencherGradeIcones();
+    carregarBancosAPI();
 
     document.getElementById('transacao-tipo').addEventListener('change', function() {
         atualizarSelectCategorias(this.value);
@@ -87,7 +88,8 @@ function setupEventListeners() {
     document.getElementById('nova-categoria-form').addEventListener('submit', handleNovaCategoria);
     document.getElementById('novo-cartao-form').addEventListener('submit', handleNovoCartao);
     document.getElementById('logout-btn').addEventListener('click', handleLogout);
-    
+    document.getElementById('transacao-cartao-id').addEventListener('change', gerarCamposData);
+
     const recoverForm1 = document.getElementById('recover-form-1');
     if(recoverForm1) recoverForm1.addEventListener('submit', handleVerificarEmail);
     
@@ -114,6 +116,7 @@ function setupEventListeners() {
 function navegarPara(tela) {
     document.querySelector('.app-menubar').classList.remove('menu-aberto');
     document.querySelectorAll('.menu-link').forEach(item => item.classList.remove('active'));
+    
     const activeLink = document.querySelector(`[onclick="navegarPara('${tela}')"]`);
     if (activeLink) activeLink.classList.add('active');
 
@@ -132,18 +135,22 @@ function navegarPara(tela) {
         'dashboard': 'Visão Geral',
         'extrato': 'Extrato Mensal',
         'novo': 'Nova Transação',
-        'categorias': 'Cadastros',
+        'categorias': 'Categorias',
+        'cartoes': 'Cartões de Crédito',
         'simulacao': 'Simulador de Contas',
         'poupanca': 'Sua Poupança'
     };
+    
     const titleElement = document.querySelector('.page-title');
     if(titleElement) titleElement.textContent = titulos[tela] || 'SmartGrana';
 
     if(tela === 'dashboard') { loadDashboard(); carregarDadosExtrasDashboard(); }
     if(tela === 'extrato') loadParcelas();
     if(tela === 'poupanca') loadPoupanca();
-    if(tela === 'novo' || tela === 'categorias') {
-        loadCategorias(tela === 'categorias');
+    if(tela === 'categorias') loadCategorias(true);
+    if(tela === 'cartoes') loadCartoes();
+    if(tela === 'novo') {
+        loadCategorias(false);
         loadCartoes();
     }
 }
@@ -405,16 +412,72 @@ function renderizarSelectCartoes() {
     });
 }
 
+function formatarDataExtensa(dataStr) {
+    if (!dataStr) return '';
+    const [ano, mes, dia] = dataStr.split('-');
+    const meses = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+    return `${parseInt(dia)} de ${meses[parseInt(mes)-1]} de ${ano}`;
+}
+
 function renderizarListaCartoesGerenciamento() {
     const container = document.getElementById('lista-cartoes-cadastrados');
     if(!container) return;
     container.innerHTML = '';
+    
+    container.className = 'row g-3'; 
+
+    const temImagemLocal = ['nubank', 'itau', 'santander', 'bradesco', 'bb', 'caixa', 'inter', 'c6', 'sicredi', 'sicoob', 'btg', 'picpay', 'mercadopago', 'pagbank', 'xp'];
     todosCartoes.forEach(c => {
+        let htmlImagem = '';
+
+        if (temImagemLocal.includes(c.icone)) {
+            htmlImagem = `<img src="/static/img/bancos/${c.icone}.png" onerror="this.style.display='none'" alt="${c.nome}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover; border: 1px solid #eee; background-color: #fff;">`;
+        } else {
+            htmlImagem = `
+                <div class="d-flex align-items-center justify-content-center bg-light border rounded-circle" style="width: 35px; height: 35px;">
+                    <i class='bx bx-credit-card text-muted fs-5'></i>
+                </div>
+            `;
+        }
+
         const item = document.createElement('div');
-        item.className = 'p-3 bg-light rounded-3 d-flex justify-content-between align-items-center mb-2';
+        item.className = 'col-md-6 col-12';
         item.innerHTML = `
-            <span class="fw-medium text-dark"><i class='bx bx-credit-card text-primary me-2'></i> ${c.nome}</span>
-            <button class="btn btn-sm btn-outline-danger rounded-circle p-1" style="line-height: 1;" onclick="excluirCartao(${c.id})"><i class='bx bx-trash'></i></button>
+            <div class="card border border-light-subtle shadow-sm rounded-4 p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex align-items-center gap-2">
+                        ${htmlImagem}
+                        <h6 class="fw-bold mb-0 text-dark">${c.nome}</h6>
+                    </div>
+                    <div>
+                        <button class="btn btn-sm btn-light text-primary me-1 py-1 px-2" onclick="abrirModalEditarCartao(${c.id})"><i class="bx bx-edit"></i></button>
+                        <button class="btn btn-sm btn-light text-danger py-1 px-2" onclick="excluirCartao(${c.id})"><i class="bx bx-trash"></i></button>
+                    </div>
+                </div>
+                
+                <p class="small text-muted mb-1 fw-bold">Fatura aberta</p>
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted small">Valor parcial</span>
+                    <span class="fw-bold text-danger">${formatarMoeda(c.fatura_atual)}</span>
+                </div>
+                <div class="d-flex justify-content-between mb-3 pb-3 border-bottom">
+                    <span class="text-muted small">Fecha em</span>
+                    <span class="fw-bold text-dark">${formatarDataExtensa(c.data_fechamento_exibicao)}</span>
+                </div>
+                
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>${formatarMoeda(c.total_gasto)} de ${formatarMoeda(c.limite)}</span>
+                    <span>${c.percentual_uso.toFixed(0)}%</span>
+                </div>
+                <div class="progress mb-2 bg-light" style="height: 8px;">
+                    <div class="progress-bar" role="progressbar" style="width: ${c.percentual_uso}%; background-color: #6c5ce7;"></div>
+                </div>
+                <p class="small text-muted fw-medium mb-3">Limite Disponível ${formatarMoeda(c.limite_disponivel)}</p>
+                
+                <div class="text-end mt-auto">
+                    <button class="btn btn-sm text-info fw-bold text-uppercase border-0" onclick="prepararDespesaCartao(${c.id})">Adicionar Despesa</button>
+                </div>
+            </div>
         `;
         container.appendChild(item);
     });
@@ -422,10 +485,16 @@ function renderizarListaCartoesGerenciamento() {
 
 async function handleNovoCartao(e) {
     e.preventDefault();
-    const nome = document.getElementById('cartao-nome').value;
-    doPost('/api/cartoes', { nome: nome }, (data) => {
+    const body = {
+        nome: document.getElementById('cartao-nome').value,
+        dia_fechamento: document.getElementById('cartao-fechamento').value,
+        dia_vencimento: document.getElementById('cartao-vencimento').value,
+        limite: limparFormatacao(document.getElementById('cartao-limite').value),
+        icone: document.getElementById('cartao-banco').value 
+    };
+    doPost('/api/cartoes', body, (data) => {
         showNotification(data.mensagem);
-        document.getElementById('cartao-nome').value = '';
+        document.getElementById('novo-cartao-form').reset();
         loadCartoes();
     });
 }
@@ -872,10 +941,34 @@ function gerarCamposData() {
         somaArr.push(v);
     }
 
+    const formaPagamento = document.getElementById('transacao-forma-pagamento').value;
+    const idCartao = document.getElementById('transacao-cartao-id').value;
+    
+    let cartaoSelecionado = null;
+    if (formaPagamento === 'Cartão Crédito' && idCartao) {
+        cartaoSelecionado = todosCartoes.find(c => c.id == idCartao);
+    }
+
     const hoje = new Date();
     for (let i = 0; i < qtd; i++) {
-        const dataSugerida = new Date(hoje.getFullYear(), hoje.getMonth() + i, hoje.getDate());
-        const dataStr = dataSugerida.toISOString().split('T')[0];
+        let dataSugerida = new Date(hoje.getFullYear(), hoje.getMonth() + i, hoje.getDate());
+
+        if (cartaoSelecionado) {
+            let mesFatura = hoje.getMonth() + i;
+            let anoFatura = hoje.getFullYear();
+
+            if (hoje.getDate() >= cartaoSelecionado.dia_fechamento) {
+                mesFatura += 1;
+            }
+            
+            
+            dataSugerida = new Date(anoFatura, mesFatura, cartaoSelecionado.dia_vencimento);
+        }
+
+        const anoIso = dataSugerida.getFullYear();
+        const mesIso = String(dataSugerida.getMonth() + 1).padStart(2, '0');
+        const diaIso = String(dataSugerida.getDate()).padStart(2, '0');
+        const dataStr = `${anoIso}-${mesIso}-${diaIso}`;
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
@@ -1247,25 +1340,32 @@ function excluirDireto(id) {
     });
 }
 
-async function doPost(url, body, callback) {
+
+async function doPost(url, body, callback, method = 'POST') {
     try {
         const res = await fetch(API_BASE_URL + url, {
-            method: 'POST',
+            method: method, 
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(body)
         });
+        
         if (res.status === 401) {
-            handleLogout(); 
+            handleLogout();
             showNotification('Sua sessão expirou.', 'error');
             return;
         }
+        
         const data = await res.json();
+        
         if (res.ok) {
             callback(data);
         } else {
             showNotification(data.erro, 'error');
         }
-    } catch(e) { console.error(e); showNotification('Erro de conexão', 'error'); }
+    } catch(e) { 
+        console.error(e); 
+        showNotification('Erro de conexão', 'error');
+    }
 }
 
 function showNotification(msg, type='success') {
@@ -2297,6 +2397,97 @@ function fecharSeClicarFora(event) {
 }
 
 
+// LÓGICA DO MODAL DE EDIÇÃO DE CARTÃO
+function abrirModalEditarCartao(id) {
+    const c = todosCartoes.find(x => x.id === id);
+    if(!c) return;
 
+    document.getElementById('edit-cartao-id-hidden').value = c.id;
+    document.getElementById('edit-cartao-banco').value = c.icone;
+    document.getElementById('edit-cartao-nome').value = c.nome;
+    document.getElementById('edit-cartao-fechamento').value = c.dia_fechamento;
+    document.getElementById('edit-cartao-vencimento').value = c.dia_vencimento;
+    document.getElementById('edit-cartao-limite').value = formatarValorInput(c.limite);
 
+    document.getElementById('modal-editar-cartao').classList.remove('d-none');
+}
+
+function fecharModalCartao() {
+    document.getElementById('modal-editar-cartao').classList.add('d-none');
+}
+
+function salvarEdicaoCartao(e) {
+    e.preventDefault();
+    const id = document.getElementById('edit-cartao-id-hidden').value;
     
+    const body = {
+        icone: document.getElementById('edit-cartao-banco').value,
+        nome: document.getElementById('edit-cartao-nome').value,
+        dia_fechamento: document.getElementById('edit-cartao-fechamento').value,
+        dia_vencimento: document.getElementById('edit-cartao-vencimento').value,
+        limite: limparFormatacao(document.getElementById('edit-cartao-limite').value)
+    };
+
+    doPost(`/api/cartoes/${id}`, body, (data) => {
+        showNotification(data.mensagem, 'success');
+        fecharModalCartao();
+        loadCartoes();
+    }, 'PUT');
+}
+
+// Função para carregar os bancos de forma estática (sem API)
+function carregarBancosAPI() {
+    const bancosPrincipais = [
+        { idLocal: 'nubank', nome: 'Nubank' },
+        { idLocal: 'itau', nome: 'Itaú Unibanco' },
+        { idLocal: 'santander', nome: 'Santander' },
+        { idLocal: 'bradesco', nome: 'Bradesco' },
+        { idLocal: 'bb', nome: 'Banco do Brasil' },
+        { idLocal: 'caixa', nome: 'Caixa Econômica' },
+        { idLocal: 'inter', nome: 'Banco Inter' },
+        { idLocal: 'c6', nome: 'C6 Bank' },
+        // Adições complementares:
+        { idLocal: 'sicredi', nome: 'Sicredi' },
+        { idLocal: 'sicoob', nome: 'Sicoob' },
+        { idLocal: 'btg', nome: 'BTG Pactual' },
+        { idLocal: 'picpay', nome: 'PicPay' },
+        { idLocal: 'mercadopago', nome: 'Mercado Pago' },
+        { idLocal: 'pagbank', nome: 'PagBank' },
+        { idLocal: 'xp', nome: 'XP Investimentos' }
+    ];
+
+    let finalHTML = '<option value="default">Outro / Genérico</option>';
+    finalHTML += '<optgroup label="Bancos (Com Imagem)">';
+
+    bancosPrincipais.forEach(b => {
+        finalHTML += `<option value="${b.idLocal}">${b.nome}</option>`;
+    });
+
+    finalHTML += '</optgroup>';
+
+    const selectNovo = document.getElementById('cartao-banco');
+    const selectEdit = document.getElementById('edit-cartao-banco');
+
+    if (selectNovo) selectNovo.innerHTML = finalHTML;
+    if (selectEdit) selectEdit.innerHTML = finalHTML;
+}
+
+function prepararDespesaCartao(idCartao) {
+    navegarPara('novo');
+
+    setTimeout(() => {
+        const selectForma = document.getElementById('transacao-forma-pagamento');
+        if(selectForma) {
+            selectForma.value = 'Cartão Crédito';
+            toggleSelectCartao(); 
+        }
+
+        const selectCartao = document.getElementById('transacao-cartao-id');
+        if(selectCartao) {
+            selectCartao.value = idCartao;
+        }
+
+        gerarCamposData();
+        
+    }, 150);
+}

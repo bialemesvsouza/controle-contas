@@ -29,6 +29,11 @@ class CartaoCredito(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     id_usuario = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
     nome = db.Column(db.String(50), nullable=False)
+    dia_fechamento = db.Column(db.Integer, default=1)
+    dia_vencimento = db.Column(db.Integer, default=10)
+    limite = db.Column(db.Float, default=0.0)
+    icone = db.Column(db.String(50), default='fas fa-credit-card')
+    cor = db.Column(db.String(7), default='#6c5ce7')
 
 class Tipo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -322,37 +327,127 @@ def editar_tipo(id_tipo):
 @login_required
 def listar_cartoes():
     cartoes = CartaoCredito.query.filter_by(id_usuario=current_user.id).all()
-    lista = [{"id": c.id, "nome": c.nome} for c in cartoes]
+    hoje = datetime.now().date()
+    lista = []
+
+    for c in cartoes:
+        mes_fatura = hoje.month
+        ano_fatura = hoje.year
+
+        if hoje.day >= c.dia_fechamento:
+            mes_fatura += 1
+            if mes_fatura > 12:
+                mes_fatura = 1
+                ano_fatura += 1
+
+        data_vencimento = datetime(ano_fatura, mes_fatura, c.dia_vencimento).date()
+        
+        mes_fechamento = mes_fatura - 1
+        ano_fechamento = ano_fatura
+        if mes_fechamento < 1:
+            mes_fechamento = 12
+            ano_fechamento -= 1
+        data_fechamento_real = datetime(ano_fechamento, mes_fechamento, c.dia_fechamento).date()
+
+        total_gasto = db.session.query(db.func.sum(Parcela.valor)).join(Transacao).filter(
+            Transacao.id_cartao == c.id,
+            Parcela.status.in_(['a_pagar', 'atrasado'])
+        ).scalar() or 0.0
+
+        valor_fatura_atual = db.session.query(db.func.sum(Parcela.valor)).join(Transacao).filter(
+            Transacao.id_cartao == c.id,
+            Parcela.vencimento == data_vencimento,
+            Parcela.status == 'a_pagar'
+        ).scalar() or 0.0
+
+        limite_disponivel = c.limite - total_gasto
+        percentual_uso = (total_gasto / c.limite * 100) if c.limite > 0 else 0
+
+        lista.append({
+            "id": c.id, "nome": c.nome, "dia_fechamento": c.dia_fechamento, 
+            "dia_vencimento": c.dia_vencimento, "limite": c.limite, 
+            "icone": c.icone, "cor": c.cor,
+            "fatura_atual": valor_fatura_atual,
+            "data_fechamento_exibicao": str(data_fechamento_real),
+            "limite_disponivel": limite_disponivel,
+            "total_gasto": total_gasto,
+            "percentual_uso": min(percentual_uso, 100) 
+        })
     return jsonify(lista)
 
 @app.route('/api/cartoes', methods=['POST'])
 @login_required
 def criar_cartao():
     dados = request.json
-    nome = dados.get('nome')
-    if not nome:
-        return jsonify({"erro": "Nome do cartão é obrigatório"}), 400
-
-    novo = CartaoCredito(nome=nome, id_usuario=current_user.id)
+    novo = CartaoCredito(
+        nome=dados['nome'], id_usuario=current_user.id,
+        dia_fechamento=int(dados.get('dia_fechamento', 1)),
+        dia_vencimento=int(dados.get('dia_vencimento', 10)),
+        limite=float(dados.get('limite', 0.0)),
+        icone=dados.get('icone', 'nubank')
+    )
     db.session.add(novo)
     db.session.commit()
     return jsonify({"mensagem": "Cartão cadastrado com sucesso!"})
 
+@app.route('/api/cartoes/<int:id_cartao>', methods=['PUT'])
+@login_required
+def editar_cartao(id_cartao):
+    cartao = CartaoCredito.query.filter_by(id=id_cartao, id_usuario=current_user.id).first()
+    if not cartao: return jsonify({"erro": "Cartão não encontrado"}), 404
+    
+    dados = request.json
+    cartao.nome = dados.get('nome', cartao.nome)
+    cartao.dia_fechamento = int(dados.get('dia_fechamento', cartao.dia_fechamento))
+    cartao.dia_vencimento = int(dados.get('dia_vencimento', cartao.dia_vencimento))
+    cartao.limite = float(dados.get('limite', cartao.limite))
+    cartao.icone = dados.get('icone', cartao.icone)
+    
+    db.session.commit()
+    return jsonify({"mensagem": "Cartão atualizado com sucesso!"})
+
 @app.route('/api/cartoes/<int:id_cartao>', methods=['DELETE'])
 @login_required
 def excluir_cartao(id_cartao):
+    # ... (mantenha a rota de exclusão que você já tem)
     cartao = CartaoCredito.query.filter_by(id=id_cartao, id_usuario=current_user.id).first()
-    if not cartao:
-        return jsonify({"erro": "Cartão não encontrado"}), 404
-
+    if not cartao: return jsonify({"erro": "Cartão não encontrado"}), 404
     uso = Transacao.query.filter_by(id_cartao=id_cartao).first()
-    if uso:
-        return jsonify({"erro": "Não é possível excluir: Cartão vinculado a transações."}), 400
-
+    if uso: return jsonify({"erro": "Não é possível excluir: Cartão em uso."}), 400
     db.session.delete(cartao)
     db.session.commit()
     return jsonify({"mensagem": "Cartão excluído."})
 
+@app.route('/api/fatura/<int:id_cartao>', methods=['GET'])
+@login_required
+def dashboard_fatura(id_cartao):
+    cartao = CartaoCredito.query.filter_by(id=id_cartao, id_usuario=current_user.id).first()
+    if not cartao: return jsonify({"erro": "Cartão não encontrado"}), 404
+
+    # Pegamos todas as parcelas "a pagar" ou "atrasadas" vinculadas a este cartão
+    parcelas = db.session.query(Parcela).join(Transacao).filter(
+        Parcela.id_usuario == current_user.id,
+        Transacao.id_cartao == id_cartao,
+        Parcela.status.in_(['a_pagar', 'atrasado'])
+    ).all()
+
+    faturas_futuras = {}
+    total_gasto = 0.0
+
+    for p in parcelas:
+        mes_ano = p.vencimento.strftime('%Y-%m')
+        if mes_ano not in faturas_futuras:
+            faturas_futuras[mes_ano] = 0.0
+        faturas_futuras[mes_ano] += p.valor
+        total_gasto += p.valor
+
+    limite_disponivel = cartao.limite - total_gasto
+
+    return jsonify({
+        "nome": cartao.nome, "limite_total": cartao.limite, 
+        "limite_disponivel": limite_disponivel, "total_gasto": total_gasto,
+        "faturas": faturas_futuras, "dia_vencimento": cartao.dia_vencimento
+    })
 
 # --- ROTAS DE TRANSAÇÃO E DASHBOARD  ---
 

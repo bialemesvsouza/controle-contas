@@ -208,7 +208,8 @@
                     <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('poupanca')"><i class='bx bx-wallet-alt fs-5'></i> <span class="fw-medium">Poupança</span></a></li>
 
                     <li class="menu-heading text-muted text-uppercase text-xs fw-bold mb-2 mt-4 px-3">Configurações</li>
-                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('categorias')"><i class='bx bx-cog fs-5'></i> <span class="fw-medium">Cadastros</span></a></li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('categorias')"><i class='bx bx-category fs-5'></i> <span class="fw-medium">Categorias</span></a></li>
+                    <li class="menu-item mb-1"><a class="menu-link d-flex align-items-center gap-2 p-2 rounded text-decoration-none" onclick="navegarPara('cartoes')"><i class='bx bx-credit-card fs-5'></i> <span class="fw-medium">Cartões de Crédito</span></a></li>
                 </ul>
             </div>
         </aside>
@@ -738,9 +739,8 @@
                 </div>
 
                 <div id="view-categorias" class="view-section d-none">
-                    <div class="row g-4">
-                        <div class="col-lg-7">
-                            <div class="card border-0 shadow-sm rounded-4">
+                    <div class="row justify-content-center">
+                        <div class="col-lg-9"> <div class="card border-0 shadow-sm rounded-4">
                                 <div class="card-header bg-transparent border-bottom pt-4 pb-3">
                                     <h5 class="fw-bold text-dark mb-0"><i class='bx bx-category text-primary'></i> Categorias</h5>
                                 </div>
@@ -787,7 +787,6 @@
                                         <div class="col-md-2 position-relative">
                                             <input type="hidden" id="cat-id-edit" value="">
                                             <button type="submit" id="btn-salvar-categoria" class="btn btn-primary w-100 fw-medium" style="height: 38px; transition: 0.3s;">Adicionar</button>
-                                            
                                             <a href="#" id="btn-cancelar-edicao-cat" class="text-danger small fw-bold text-decoration-none d-none text-center w-100" onclick="cancelarEdicaoCategoria()" style="position: absolute; top: 100%; left: 0; padding-top: 4px;">Cancelar</a>
                                         </div>
                                     </form>
@@ -800,23 +799,54 @@
                                         <div class="col-md-6">
                                             <h6 class="text-success fw-bold border-bottom pb-2 mb-3">Receitas</h6>
                                             <div id="lista-categorias-receita" class="d-flex flex-column gap-2"></div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="col-lg-5">
+                <div id="view-cartoes" class="view-section d-none">
+                    <div class="row">
+                        <div class="col-12">
                             <div class="card border-0 shadow-sm rounded-4">
                                 <div class="card-header bg-transparent border-bottom pt-4 pb-3">
                                     <h5 class="fw-bold text-dark mb-0"><i class='bx bx-credit-card text-primary'></i> Cartões de Crédito</h5>
                                 </div>
                                 <div class="card-body p-4">
-                                    <form id="novo-cartao-form" class="d-flex gap-2 mb-4 border-bottom pb-4">
-                                        <input type="text" class="form-control bg-light border-0" id="cartao-nome" placeholder="Ex: Nubank..." required>
-                                        <button type="submit" class="btn btn-primary text-nowrap">Salvar</button>
+                                    <form id="novo-cartao-form" class="mb-4 border-bottom pb-4">
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted small">Banco/Instituição</label>
+                                                <select class="form-select bg-light border-0" id="cartao-banco" required>
+                                                    <option value="default">Carregando bancos...</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label text-muted small">Descrição</label>
+                                                <input type="text" class="form-control bg-light border-0" id="cartao-nome" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label text-muted small">Fechamento</label>
+                                                <input type="number" class="form-control bg-light border-0" id="cartao-fechamento" min="1" max="31" placeholder="Dia" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label text-muted small">Vencimento</label>
+                                                <input type="number" class="form-control bg-light border-0" id="cartao-vencimento" min="1" max="31" placeholder="Dia" required>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label text-muted small">Limite (R$)</label>
+                                                <input type="text" class="form-control bg-light border-0" id="cartao-limite" placeholder="0,00" oninput="mascaraMilhar(event)" required>
+                                            </div>
+                                            <div class="col-12 mt-3 text-end">
+                                                <button type="submit" class="btn btn-primary px-4 fw-bold">Salvar Cartão</button>
+                                            </div>
+                                        </div>
                                     </form>
-                                    <div id="lista-cartoes-cadastrados" class="d-flex flex-column gap-2"></div>
+                                    
+                                    <div id="lista-cartoes-cadastrados" class="row g-3"></div>
+                                </div>
                                 </div>
                             </div>
                         </div>
@@ -1064,6 +1094,47 @@
             <div class="card-body p-4 bg-light" style="overflow-y: auto;">
                 <div class="d-flex flex-wrap gap-2 justify-content-center" id="grade-icones-selecao">
                     </div>
+            </div>
+        </div>
+    </div>
+    <div id="modal-editar-cartao" class="modal-overlay d-none" style="position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:center; justify-content:center;">
+        <div class="card border-0 shadow-lg rounded-4 w-100 mx-3" style="max-width: 450px;">
+            <div class="card-header bg-white border-bottom pt-4 pb-3 d-flex justify-content-between align-items-center rounded-top-4">
+                <h5 class="fw-bold mb-0 text-dark">Editar Cartão</h5>
+                <button type="button" class="btn-close" onclick="fecharModalCartao()"></button>
+            </div>
+            <div class="card-body p-4">
+                <form onsubmit="salvarEdicaoCartao(event)">
+                    <input type="hidden" id="edit-cartao-id-hidden">
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Banco/Instituição</label>
+                            <select class="form-select bg-light border-0" id="edit-cartao-banco" required>
+                                <option value="default">Carregando bancos...</option>
+                            </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">Nome do Cartão</label>
+                        <input type="text" class="form-control bg-light border-0" id="edit-cartao-nome" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4 form-group">
+                            <label class="form-label small text-muted">Fechamento</label>
+                            <input type="number" class="form-control bg-light border-0" id="edit-cartao-fechamento" min="1" max="31" required>
+                        </div>
+                        <div class="col-4 form-group">
+                            <label class="form-label small text-muted">Vencimento</label>
+                            <input type="number" class="form-control bg-light border-0" id="edit-cartao-vencimento" min="1" max="31" required>
+                        </div>
+                        <div class="col-4 form-group">
+                            <label class="form-label small text-muted">Limite (R$)</label>
+                            <input type="text" class="form-control bg-light border-0" id="edit-cartao-limite" required oninput="mascaraMilhar(event)">
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end pt-3 border-top gap-2">
+                        <button type="button" class="btn btn-light px-4" onclick="fecharModalCartao()">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4">Salvar</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

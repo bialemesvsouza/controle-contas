@@ -125,7 +125,7 @@ body {
 }
 
 /* Categorias e Cartões Customizados no Dashboard (Cadastros) */
-.categoria-item, #lista-cartoes-cadastrados > div {
+.categoria-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
