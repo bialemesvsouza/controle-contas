@@ -1145,6 +1145,14 @@ async function handleNovaTransacao(e) {
     doPost('/nova_transacao', body, (data) => {
         showNotification(data.mensagem);
         
+        const tipoCadastrado = body.tipo; 
+        const mesCadastrado = body.datas_parcelas[0].substring(0, 7); 
+
+        mudarTipoExtrato(tipoCadastrado);
+
+        mesAtualExtrato = mesCadastrado;
+        renderizarRover();
+
         document.getElementById('nova-transacao-form').reset();
         
         if (typeof toggleTransacaoFixa === 'function') {
@@ -1155,7 +1163,7 @@ async function handleNovaTransacao(e) {
         toggleSelectCartao();
         document.getElementById('transacao-tipo').value = 'despesa';
         atualizarSelectCategorias('despesa');
-        navegarPara('extrato');
+        navegarPara('extrato'); 
     });
 }
 
