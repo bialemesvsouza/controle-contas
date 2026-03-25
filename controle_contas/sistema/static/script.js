@@ -1624,9 +1624,31 @@ function renderizarGradeCalendario() {
         const dataAtualStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
         const isToday = (year === hojeY && month === hojeM && day === hojeD);
         const eventosDia = listaPendentesGlobal.filter(p => p.vencimento === dataAtualStr);
+
+        const eventosAgrupados = [];
+        const faturasDoDia = {};
+
+        eventosDia.forEach(ev => {
+            if (ev.forma_pagamento === 'Cartão Crédito' && ev.nome_cartao) {
+                if (!faturasDoDia[ev.nome_cartao]) {
+                    faturasDoDia[ev.nome_cartao] = 0;
+                }
+                faturasDoDia[ev.nome_cartao] += ev.valor;
+            } else {
+                eventosAgrupados.push(ev);
+            }
+        });
+
+        Object.keys(faturasDoDia).forEach(nomeCartao => {
+            eventosAgrupados.push({
+                tipo: 'despesa',
+                descricao: `Fatura ${nomeCartao}`,
+                valor: faturasDoDia[nomeCartao]
+            });
+        });
         
         let htmlEventos = '';
-        eventosDia.forEach(ev => {
+        eventosAgrupados.forEach(ev => {
             const classeCor = ev.tipo === 'receita' ? 'receita' : 'despesa';
             const prefix = ev.tipo === 'receita' ? '+' : '-';
             htmlEventos += `<div class="calendar-event ${classeCor}" title="${ev.descricao} - ${formatarMoeda(ev.valor)}">${prefix}${formatarMoeda(ev.valor)} ${ev.descricao}</div>`;
@@ -1662,10 +1684,15 @@ function abrirModalPendentes() {
             const corValor = p.tipo === 'receita' ? 'text-success' : 'text-danger';
             const prefix = p.tipo === 'receita' ? '+' : '-';
 
+            let descExibicao = p.descricao;
+            if (p.forma_pagamento === 'Cartão Crédito' && p.nome_cartao) {
+                descExibicao += ` <br><small class="text-muted">💳 ${p.nome_cartao}</small>`;
+            }
+
             tbody.innerHTML += `
                 <tr>
                     <td class="ps-4 fw-medium">${dataDisplay}</td>
-                    <td class="fw-bold text-dark">${p.descricao}</td>
+                    <td class="fw-bold text-dark" style="line-height: 1.2;">${descExibicao}</td>
                     <td><span class="badge bg-light text-dark border">${p.categoria}</span></td>
                     <td class="text-muted">${p.numero}</td>
                     <td class="fw-bold ${corValor}">${prefix}${formatarMoeda(p.valor)}</td>

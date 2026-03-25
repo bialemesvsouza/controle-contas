@@ -820,7 +820,9 @@ def dashboard_extras():
                 "vencimento": str(p.vencimento),
                 "status": p.status,
                 "categoria": t.tipo.nome if t.tipo else 'Geral',
-                "tipo": t.tipo_transacao
+                "tipo": t.tipo_transacao,
+                "forma_pagamento": t.forma_pagamento,
+                "nome_cartao": t.cartao.nome if t.cartao else None
             })
 
     return jsonify({
