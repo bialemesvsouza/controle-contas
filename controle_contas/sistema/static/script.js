@@ -474,8 +474,9 @@ function renderizarListaCartoesGerenciamento() {
                 </div>
                 <p class="small text-muted fw-medium mb-3">Limite Disponível ${formatarMoeda(c.limite_disponivel)}</p>
                 
-                <div class="text-end mt-auto">
-                    <button class="btn btn-sm text-info fw-bold text-uppercase border-0" onclick="prepararDespesaCartao(${c.id})">Adicionar Despesa</button>
+                <div class="d-flex justify-content-between mt-auto pt-2 border-top">
+                    <button class="btn btn-sm text-primary fw-bold border-0" onclick="verFaturasFuturas(${c.id})"><i class='bx bx-calendar'></i> Ver Faturas</button>
+                    <button class="btn btn-sm text-info fw-bold text-uppercase border-0" onclick="prepararDespesaCartao(${c.id})">Nova Despesa</button>
                 </div>
             </div>
         `;
@@ -957,10 +958,13 @@ function gerarCamposData() {
             let mesFatura = hoje.getMonth() + i;
             let anoFatura = hoje.getFullYear();
 
+            if (cartaoSelecionado.dia_fechamento > cartaoSelecionado.dia_vencimento) {
+                mesFatura += 1;
+            }
+
             if (hoje.getDate() >= cartaoSelecionado.dia_fechamento) {
                 mesFatura += 1;
             }
-            
             
             dataSugerida = new Date(anoFatura, mesFatura, cartaoSelecionado.dia_vencimento);
         }
@@ -2498,4 +2502,54 @@ function prepararDespesaCartao(idCartao) {
         gerarCamposData();
         
     }, 150);
+}
+
+// ==========================================
+// LÓGICA DAS FATURAS FUTURAS (MODAL)
+// ==========================================
+async function verFaturasFuturas(idCartao) {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/fatura/${idCartao}`);
+        if (res.ok) {
+            const data = await res.json();
+            
+            document.getElementById('faturas-nome-cartao').innerHTML = `
+                <i class='bx bx-credit-card text-primary'></i> ${data.nome} 
+                <span class="fs-6 fw-normal text-muted d-block mt-1">Limite Disponível: ${formatarMoeda(data.limite_disponivel)}</span>
+            `;
+            
+            const tbody = document.getElementById('lista-faturas-futuras');
+            tbody.innerHTML = '';
+
+            const meses = Object.keys(data.faturas).sort();
+
+            if (meses.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" class="py-4 text-muted"><i class="bx bx-check-circle fs-3 d-block mb-2 text-success"></i> Nenhuma fatura pendente ou futura!</td></tr>';
+            } else {
+                meses.forEach(mesAno => {
+                    const valor = data.faturas[mesAno];
+                    
+                    const [ano, mes] = mesAno.split('-');
+                    const dataObj = new Date(ano, mes - 1, 10);
+                    let mesStr = dataObj.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).replace('.', '');
+                    mesStr = mesStr.charAt(0).toUpperCase() + mesStr.slice(1);
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td class="fw-medium text-dark text-capitalize py-2">${mesStr}</td>
+                            <td class="fw-bold text-danger py-2">${formatarMoeda(valor)}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            document.getElementById('modal-faturas-futuras').classList.remove('d-none');
+        }
+    } catch (e) {
+        showNotification("Erro ao carregar as faturas futuras", "error");
+    }
+}
+
+function fecharModalFaturasFuturas() {
+    document.getElementById('modal-faturas-futuras').classList.add('d-none');
 }

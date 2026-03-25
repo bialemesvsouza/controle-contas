@@ -5,6 +5,7 @@ from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy import func
+import calendar
 
 # --- CONFIGURAÇÃO ---
 app = Flask(__name__)
@@ -162,14 +163,12 @@ def atualizar_status_automaticos(user_id):
             t.valor_total += (valor_parc * 12)
     db.session.commit()
     
-    # Atualiza Despesas Atrasadas
     Parcela.query.filter(
         Parcela.id_usuario == user_id,
         Parcela.status == 'a_pagar',
         Parcela.vencimento < hoje
     ).update({Parcela.status: 'atrasado'}, synchronize_session=False)
     
-    # Atualiza Receitas que chegaram na data
     Parcela.query.filter(
         Parcela.id_usuario == user_id,
         Parcela.status == 'a_receber',
@@ -279,7 +278,6 @@ def excluir_tipo(id_tipo):
     if not tipo:
         return jsonify({"erro": "Categoria não encontrada ou acesso negado"}), 404
 
-    # Trava de segurança com os novos nomes
     if tipo.nome in ['ENVIAR POUPANÇA', 'RESGATAR POUPANÇA']:
         return jsonify({"erro": "Esta é uma categoria vinculada ao sistema e não pode ser excluída."}), 400
 
@@ -331,23 +329,31 @@ def listar_cartoes():
     lista = []
 
     for c in cartoes:
-        mes_fatura = hoje.month
-        ano_fatura = hoje.year
+        mes_fechamento = hoje.month
+        ano_fechamento = hoje.year
 
         if hoje.day >= c.dia_fechamento:
-            mes_fatura += 1
-            if mes_fatura > 12:
-                mes_fatura = 1
-                ano_fatura += 1
+            mes_fechamento += 1
+            if mes_fechamento > 12:
+                mes_fechamento = 1
+                ano_fechamento += 1
 
-        data_vencimento = datetime(ano_fatura, mes_fatura, c.dia_vencimento).date()
-        
-        mes_fechamento = mes_fatura - 1
-        ano_fechamento = ano_fatura
-        if mes_fechamento < 1:
-            mes_fechamento = 12
-            ano_fechamento -= 1
-        data_fechamento_real = datetime(ano_fechamento, mes_fechamento, c.dia_fechamento).date()
+        ultimo_dia_mes = calendar.monthrange(ano_fechamento, mes_fechamento)[1]
+        dia_fechamento_seguro = min(c.dia_fechamento, ultimo_dia_mes)
+        data_fechamento_real = datetime(ano_fechamento, mes_fechamento, dia_fechamento_seguro).date()
+
+        mes_vencimento = mes_fechamento
+        ano_vencimento = ano_fechamento
+
+        if c.dia_fechamento > c.dia_vencimento:
+            mes_vencimento += 1
+            if mes_vencimento > 12:
+                mes_vencimento = 1
+                ano_vencimento += 1
+                
+        ultimo_dia_venc = calendar.monthrange(ano_vencimento, mes_vencimento)[1]
+        dia_venc_seguro = min(c.dia_vencimento, ultimo_dia_venc)
+        data_vencimento_atual = datetime(ano_vencimento, mes_vencimento, dia_venc_seguro).date()
 
         total_gasto = db.session.query(db.func.sum(Parcela.valor)).join(Transacao).filter(
             Transacao.id_cartao == c.id,
@@ -356,8 +362,8 @@ def listar_cartoes():
 
         valor_fatura_atual = db.session.query(db.func.sum(Parcela.valor)).join(Transacao).filter(
             Transacao.id_cartao == c.id,
-            Parcela.vencimento == data_vencimento,
-            Parcela.status == 'a_pagar'
+            Parcela.vencimento <= data_vencimento_atual,
+            Parcela.status.in_(['a_pagar', 'atrasado'])
         ).scalar() or 0.0
 
         limite_disponivel = c.limite - total_gasto
@@ -367,7 +373,7 @@ def listar_cartoes():
             "id": c.id, "nome": c.nome, "dia_fechamento": c.dia_fechamento, 
             "dia_vencimento": c.dia_vencimento, "limite": c.limite, 
             "icone": c.icone, "cor": c.cor,
-            "fatura_atual": valor_fatura_atual,
+            "fatura_atual": valor_fatura_atual, 
             "data_fechamento_exibicao": str(data_fechamento_real),
             "limite_disponivel": limite_disponivel,
             "total_gasto": total_gasto,
@@ -409,7 +415,6 @@ def editar_cartao(id_cartao):
 @app.route('/api/cartoes/<int:id_cartao>', methods=['DELETE'])
 @login_required
 def excluir_cartao(id_cartao):
-    # ... (mantenha a rota de exclusão que você já tem)
     cartao = CartaoCredito.query.filter_by(id=id_cartao, id_usuario=current_user.id).first()
     if not cartao: return jsonify({"erro": "Cartão não encontrado"}), 404
     uso = Transacao.query.filter_by(id_cartao=id_cartao).first()
@@ -424,7 +429,6 @@ def dashboard_fatura(id_cartao):
     cartao = CartaoCredito.query.filter_by(id=id_cartao, id_usuario=current_user.id).first()
     if not cartao: return jsonify({"erro": "Cartão não encontrado"}), 404
 
-    # Pegamos todas as parcelas "a pagar" ou "atrasadas" vinculadas a este cartão
     parcelas = db.session.query(Parcela).join(Transacao).filter(
         Parcela.id_usuario == current_user.id,
         Transacao.id_cartao == id_cartao,
