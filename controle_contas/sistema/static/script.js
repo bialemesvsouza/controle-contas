@@ -1887,7 +1887,7 @@ function renderizarListaReparcelamento() {
         tbody.innerHTML += `
             <tr>
                 <td class="text-muted fw-bold">${i + 1}</td>
-                <td><input type="text" class="form-control form-control-sm text-center fw-bold input-rep-valor" value="${formatarValorInput(p.valor)}" oninput="mascaraMilhar(event); atualizarValorReparcelamento(${i}, this.value); calcularSomaReparcelamento()"></td>
+                <td><input type="text" class="form-control form-control-sm text-center fw-bold input-rep-valor" value="${formatarValorInput(p.valor)}" oninput="mascaraMilhar(event); atualizarValorReparcelamento(${i}, this.value); calcularSomaReparcelamento()" onchange="recalcularValoresReparcelamentoAbaixo(${i})"></td>
                 <td><input type="date" class="form-control form-control-sm text-center input-rep-data" value="${p.vencimento}" onchange="atualizarDataReparcelamento(${i}, this.value)"></td>
                 <td>
                     <div class="btn-group btn-group-sm shadow-sm" role="group">
@@ -1963,6 +1963,39 @@ function calcularSomaReparcelamento() {
         document.getElementById('reparcelar-soma').className = 'text-primary fw-bold';
         document.getElementById('reparcelar-diferenca').className = 'text-success fw-bold';
     }
+}
+
+function recalcularValoresReparcelamentoAbaixo(indexAlterado) {
+    let totalStr = document.getElementById('reparcelar-valor-total').value;
+    let total = limparFormatacao(totalStr);
+
+    let somaFixada = 0;
+    for(let i = 0; i <= indexAlterado; i++) {
+        somaFixada += parcelasReparcelamento[i].valor;
+    }
+
+    let restante = total - somaFixada;
+    let parcelasRestantes = parcelasReparcelamento.length - 1 - indexAlterado;
+
+    if (parcelasRestantes > 0) {
+        let valorBase = Math.max(0, restante / parcelasRestantes);
+        let totalDistribuido = 0;
+
+        for(let i = indexAlterado + 1; i < parcelasReparcelamento.length; i++) {
+            let v = Number(valorBase.toFixed(2));
+
+            if (i === parcelasReparcelamento.length - 1 && restante > 0) {
+                v = Number((restante - totalDistribuido).toFixed(2));
+            } else if (restante <= 0) {
+                v = 0;
+            }
+            totalDistribuido += v;
+            
+            parcelasReparcelamento[i].valor = v;
+        }
+    }
+    
+    renderizarListaReparcelamento();
 }
 
 function aplicarRecorrenciaReparcelamento(indexBase, tipo) {
